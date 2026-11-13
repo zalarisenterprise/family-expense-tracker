@@ -662,6 +662,7 @@ function bindCommon() {
   document.querySelectorAll('[data-act]').forEach(el => el.addEventListener('click', e => ACTIONS[el.dataset.act]?.(el, e)));
   if (S.view === 'settings') document.querySelectorAll('#main input, #main textarea').forEach(el => el.addEventListener('input', () => { S.dirty = true; }));
   document.querySelectorAll('[data-fam]').forEach(cb => cb.addEventListener('change', () => famChange(cb.dataset.fam, cb.checked)));
+  document.querySelectorAll('#restore-file').forEach(el => { S.restoreData = null; el.addEventListener('change', () => pickRestoreFile(el)); });
   document.querySelectorAll('[data-fam-only]').forEach(b => b.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); S.f.fam = [b.dataset.famOnly]; S.famOpen = true; render(); }));
   document.querySelectorAll('details[data-mp]').forEach(d => d.addEventListener('toggle', () => { S.mpOpen[d.dataset.mp] = d.open; }));
   document.querySelectorAll('[data-tip]').forEach(el => {
@@ -1067,6 +1068,7 @@ function viewSettings() {
       <div class="card"><h2>Appearance</h2><div class="seg" role="group" aria-label="Theme">${['auto', 'light', 'dark'].map(t => `<button data-act="theme" data-t="${t}" class="${(document.documentElement.dataset.theme || 'auto') === t ? 'on' : ''}">${t[0].toUpperCase() + t.slice(1)}</button>`).join('')}</div></div>
       ${S.isAdmin ? `<div class="card"><h2>Database check</h2><div class="sub" style="margin-bottom:10px">Confirms where your data is stored, that saving works, and how many entries each person has saved.</div><button class="btn" data-act="rundiag">Run check</button><div id="diag-out" style="margin-top:12px">${S.diag ? diagHtml(S.diag) : ''}</div></div>` : ''}
       ${S.isAdmin ? `<div class="card"><h2>Backup</h2><div class="sub" style="margin-bottom:10px">Download a full copy of all entries, members (without passwords), budgets and settings. Keep one every few months.</div><button class="btn" data-act="backup">Download full backup</button></div>` : ''}
+      ${S.isAdmin ? `<div class="card" id="restore-card"><h2>Restore from a backup file</h2><div class="sub" style="margin-bottom:10px">Load a backup file (from <b>Download full backup</b>) into this database. It only adds what is missing and never changes or deletes anything, so it is safe to run twice. Use it to move your data into a new or empty database.</div><input type="file" id="restore-file" accept=".json,application/json" aria-label="Choose a backup file"><div id="restore-out" style="margin-top:12px"></div></div>` : ''}
       ${S.isAdmin ? `<div class="card"><h2>Family members</h2><div class="sub" style="margin-bottom:10px">Add people, set their role and reset passwords.</div><a class="btn" href="#users">Manage family members</a></div>` : ''}
     </div>
   </div>`;
@@ -1202,6 +1204,42 @@ function userForm(id, resetOnly) {
         else { body.username = m.querySelector('#u-user').value.trim(); body.password = pw; await mutate('POST', '/api/users', body); closeModal(); showCredentials(body.name, body.username, pw, false); }
       } catch (e) { err.textContent = e.message; }
     };
+  });
+}
+/* ---- restore from a backup file (admin) ---- */
+async function pickRestoreFile(input) {
+  const out = $('#restore-out'); S.restoreData = null;
+  const f = input.files && input.files[0];
+  if (!f) { out.innerHTML = ''; return; }
+  const bad = msg => { out.innerHTML = `<span class="diag-bad">${esc(msg)}</span>`; };
+  if (f.size > 3.8e6) return bad('That file is too big to be a backup of this app.');
+  let d;
+  try { d = JSON.parse(await f.text()); } catch (e) { return bad('That file could not be read. Choose the .json file from Download full backup.'); }
+  if (!d || d.app !== 'family-expense-tracker' || !Array.isArray(d.users) || !Array.isArray(d.entries)) return bad('This is not a backup from the Family Expense Tracker.');
+  S.restoreData = d; S.dirty = true;
+  const when = d.exportedAt && !isNaN(Date.parse(d.exportedAt)) ? fmtDate(isoDate(new Date(d.exportedAt))) : 'an unknown date';
+  const rules = Array.isArray(d.recurring) ? d.recurring.length : 0;
+  out.innerHTML = `<div style="margin-bottom:8px">Backup made on <b>${esc(when)}</b>: <b>${d.users.length}</b> members, <b>${d.entries.length}</b> entries, <b>${rules}</b> recurring commitments.</div>
+    <p class="hint" style="margin:0 0 10px">Members are matched by username. Anyone not found here is created with a temporary password, shown once on the next screen.</p>
+    <button class="btn primary" id="restore-go">Restore into this database</button>`;
+  $('#restore-go').onclick = e => ACTIONS.dorestore(e.currentTarget);
+}
+function showRestoreResult(r) {
+  const x = r.summary, users = r.newUsers || [];
+  const text = users.length ? `Family Expense Tracker\nWebsite: ${location.origin}\nTemporary passwords (you will be asked to choose your own at first login):\n` + users.map(u => `${u.name} (${u.role}): username ${u.username}, password ${u.password}`).join('\n') : '';
+  const line = (n, t) => n ? `<li><b>${n}</b> ${t}</li>` : '';
+  openModal(`<h2>Restore finished</h2>
+  <ul style="padding-left:18px;margin:8px 0;display:grid;gap:3px">
+    ${line(x.entriesAdded, 'entries added')}${line(x.rulesAdded, 'recurring commitments added')}${line(x.usersAdded, 'members created')}${line(x.usersMatched, 'members matched by username')}${line(x.budgetsAdded, 'budgets added')}
+    ${line(x.entriesAlreadyThere + x.rulesAlreadyThere, 'items were already here and left alone')}${line(x.entriesSkipped + x.rulesSkipped + x.usersSkipped, 'items in the file could not be used and were skipped')}
+    ${x.settings === 'restored' ? '<li>Categories and settings restored</li>' : x.settings === 'merged' ? '<li>Missing categories and payment modes added to your settings</li>' : ''}
+    ${!x.entriesAdded && !x.rulesAdded && !x.usersAdded ? '<li>Nothing new to add. Everything in the file was already here.</li>' : ''}
+  </ul>
+  ${users.length ? `<p class="sub">Give each new member their temporary password. It is <b>not shown again</b>.</p><pre style="background:var(--surface-2);padding:12px;border-radius:8px;white-space:pre-wrap;font-size:13px">${esc(text)}</pre>` : ''}
+  <div class="actions">${users.length ? '<button class="btn" data-x="copy">Copy</button>' : ''}<button class="btn primary" data-x="ok">Done</button></div>`, m => {
+    m.querySelector('[data-x=ok]').onclick = closeModal;
+    const c = m.querySelector('[data-x=copy]');
+    if (c) c.onclick = async () => { try { await navigator.clipboard.writeText(text); toast('Copied'); } catch (e) { toast('Select the text and copy it'); } };
   });
 }
 function tempPassword() {
@@ -1509,6 +1547,15 @@ const ACTIONS = {
       setTimeout(() => URL.revokeObjectURL(url), 2000); toast('Backup downloaded');
     } catch (e) { toast(e.message); }
     el.disabled = false;
+  },
+  dorestore: async el => {
+    if (!S.restoreData) return;
+    el.disabled = true; el.textContent = 'Restoring…';
+    try {
+      const r = await api('POST', '/api/restore', S.restoreData);
+      S.restoreData = null; S.dirty = false; S.force = true; await load();
+      showRestoreResult(r);
+    } catch (e) { toast(e.message); el.disabled = false; el.textContent = 'Restore into this database'; }
   },
   viewperson: el => { S.f.scope = el.dataset.id === S.me ? 'me' : el.dataset.id; location.hash = 'transactions'; },
   editbudget: el => budgetForm(el.dataset.key),
