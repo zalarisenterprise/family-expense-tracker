@@ -2,11 +2,27 @@
 
 A private expense tracker for your family. Each person logs in with their own username and password.
 
-- **Admin:** sees everyone's expenses, the **Family view** (every member's full details, one panel each), settings and budgets, and adds family members with their **name and relationship**.
-- **Member:** sees their own expenses plus the shared household expenses.
+- **Admin:** sees everyone's expenses, the **Family view** (every member's full details, one panel each), settings and budgets, and adds family members with their **name and relationship**. The admin can **add, edit, pause and delete every entry and every fixed monthly commitment**, for any member.
+- **Member:** sees their own expenses, the household expenses debited from their salary, and can edit their own entries and commitments.
 - **Viewer:** sees the household expenses only, read-only.
 
-Every date field (entry date, custom date range, recurring start month and day of month) opens a **calendar** you can tap.
+Every date field (entry date, custom date range, recurring start month and day of month) opens a **calendar** you can tap. Everything works the same on a computer and on a phone (on a phone: four tabs at the bottom, a **More** menu for the rest, and a **+** button to add an entry).
+
+### Household expenses and whose salary pays for them
+
+Choose the category **Household** when adding an entry, then pick:
+
+- **Spent by**: who actually paid.
+- **Debit from**: whose salary it comes out of (or the **shared household pool**).
+
+The amount is subtracted from the person in *Debit from* only. Their dashboard shows it, their balance (Income − Expenses − Savings) drops by it, and the Family view counts it once. Fixed monthly commitments (EMI, SIP, RD, chit, bills) have the same *Debit from* option.
+
+### Other features
+
+- **Sub-category**: a dropdown of the category's sub-categories, plus **Other (type your own)**.
+- **Payment modes** include **Auto Debit** (and UPI, Cash, Card, Net banking and so on; add more in Settings).
+- **Fixed monthly commitments** can be added, edited, paused or deleted from the Dashboard, the Family view and the EMI & savings page. Editing a rule also updates the entry it has already posted for this month.
+- **Family view** has a member picker: choose one member, several members, everyone, and optionally the shared household pool.
 
 It's built with Node.js (Express) and a Turso database. It runs on **Render** or **Vercel**.
 
@@ -37,6 +53,8 @@ The app signs login sessions with a secret key. Generate one:
 node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
 ```
 Keep it private. If it changes, everyone has to log in again.
+
+**Set all three** (`TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN`, `JWT_SECRET`) on your host. In production the app refuses to start data work without the Turso settings instead of quietly saving to a temporary file that is wiped on every restart. If you see "The server needs attention" on the login page, a setting is missing.
 
 ## 3. Put the code on GitHub (private repository)
 
@@ -83,6 +101,7 @@ The repository holds only the code. Passwords, the Turso token and the secret ke
 | `NODE_ENV` | `production` |
 
 4. Click **Deploy**. Your site will be at `https://<name>.onrender.com`.
+5. After you log in as admin, open **Settings → Database check → Run check**. It must say the data is saved in **Turso (remote)**, list every member, and pass the save test.
 
 > Render's free plan puts the app to sleep after about 15 minutes without visitors. The first visit after that takes 30–60 seconds to load. The paid plan doesn't sleep.
 
@@ -91,7 +110,8 @@ The repository holds only the code. Passwords, the Turso token and the secret ke
 1. Go to https://vercel.com and choose **Add New → Project**, then import your GitHub repo.
 2. **Framework preset:** Other. Leave the build and output settings empty.
 3. Under **Environment Variables**, add the same four values as the Render table above.
-4. Click **Deploy**. Your site will be at `https://<name>.vercel.app`.
+4. Click **Deploy**. Your site will be at `https://<name>.vercel.app`. (Changed an environment variable? Open Deployments → ⋯ → **Redeploy** so it takes effect.)
+5. Log in as admin and run **Settings → Database check** as above.
 
 Vercel serves `public/` as the website and runs `api/index.js` for every `/api/...` request (see `vercel.json`).
 
@@ -116,6 +136,9 @@ Vercel serves `public/` as the website and runs `api/index.js` for every `/api/.
 | See one member's full details | Family view → open their panel (or **Details ↓**) |
 | See a member's EMI, SIP, RD or chit | EMI & savings → choose the person at the top |
 | Download a full backup | Settings → **Download full backup** |
+| Check the data really reaches Turso | Settings → **Database check** |
+| Fix or delete any entry (any member's) | Transactions → **Edit** / **Delete** on the row |
+| Add, edit or pause a fixed monthly commitment | Dashboard or Family view → Fixed monthly commitments, or EMI & savings |
 
 **If you, the admin, forget your own password**, run this on your computer from the project folder:
 ```bash
@@ -135,6 +158,10 @@ Everything is stored in your Turso database. Turso has a free plan that is plent
    turso db shell family-expenses .dump > backup-$(date +%F).sql
    ```
 4. **If you ever need to move**, the same code works with any libSQL or SQLite database, so you can switch to another free provider such as Cloudflare D1 with small changes.
+
+## Each person should use their own browser or phone
+
+A login is a browser cookie. If two people log in one after the other in the *same* browser, the second login replaces the first. The app notices this and stops the older tab ("signed in as someone else") instead of saving an entry under the wrong person. Give each family member their own device or browser profile.
 
 ## Running on your own computer
 
@@ -160,8 +187,8 @@ server.js            start file for Render or your own computer
 api/index.js         start file for Vercel
 vercel.json          sends /api/* to the API on Vercel
 src/app.js           all API routes: login, users, entries, budgets, recurring, settings, backup
-src/db.js            Turso connection and table creation
-src/defaults.js      starting categories and payment modes
+src/db.js            Turso connection, table creation and upgrade of older databases
+src/defaults.js      starting categories, payment modes and the one-time settings upgrade
 public/login.html    login page and first-time admin setup
 public/index.html    the tracker app
 scripts/             migrate and reset-password helpers

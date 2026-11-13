@@ -1,6 +1,6 @@
 {
   "name": "family-expense-tracker",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "description": "Family expense tracker with logins, roles, budgets and recurring entries. Express + Turso (libSQL).",
   "type": "module",
   "main": "server.js",
