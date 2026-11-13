@@ -3,8 +3,8 @@ import cookieParser from 'cookie-parser';
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import crypto from 'node:crypto';
-import { ensureSchema, one, all, run, db } from './db.js';
-import { DEFAULT_CONFIG } from './defaults.js';
+import { ensureSchema, one, all, run, db, dbProblem, dbInfo } from './db.js';
+import { DEFAULT_CONFIG, CFG_VERSION, upgradeConfig } from './defaults.js';
 
 const IS_PROD = process.env.NODE_ENV === 'production' || !!process.env.VERCEL || !!process.env.RENDER;
 const JWT_SECRET = process.env.JWT_SECRET || (IS_PROD ? null : 'dev-only-secret-change-me');
@@ -13,6 +13,7 @@ const SESSION_DAYS = 30;
 const MAX_FAILED = 5;
 const LOCK_MINUTES = 15;
 const HH = 'household';
+const SHARED = 'shared';   // household entries paid from the family pool, not from one person's salary
 const TYPES = ['expense', 'income', 'saving'];
 // Used to keep login timing the same whether or not a username exists.
 const DUMMY_HASH = bcrypt.hashSync('not-a-real-password', 10);
@@ -33,6 +34,7 @@ app.use((req, res, next) => {
 // ---------- schema + config checks ----------
 app.use('/api', async (req, res, next) => {
   if (!JWT_SECRET) return res.status(500).json({ error: 'Server is missing JWT_SECRET. Add it in your hosting environment variables.' });
+  if (dbProblem) return res.status(500).json({ error: dbProblem });
   try { await ensureSchema(); next(); }
   catch (e) { console.error(e); res.status(500).json({ error: 'Could not connect to the database. Check TURSO_DATABASE_URL and TURSO_AUTH_TOKEN.' }); }
 });
@@ -86,7 +88,15 @@ function publicUser(u) {
 
 async function getConfig() {
   const row = await one(`SELECT value FROM settings WHERE key = 'config'`);
-  return { ...DEFAULT_CONFIG, ...(row ? parseJSON(row.value, {}) : {}) };
+  if (!row) return { ...DEFAULT_CONFIG };
+  const stored = parseJSON(row.value, {});
+  let cfg = { ...DEFAULT_CONFIG, ...stored };
+  if ((Number(stored.cfgVersion) || 1) < CFG_VERSION) {
+    // Settings saved by an older version: add the new Household category + Auto Debit mode once.
+    cfg = upgradeConfig(cfg);
+    await run(`UPDATE settings SET value = ? WHERE key = 'config'`, [JSON.stringify(cfg)]);
+  }
+  return cfg;
 }
 
 // ---------- auth middleware ----------
@@ -99,6 +109,13 @@ const auth = wrap(async (req, res, next) => {
   if (!user || !user.active || Number(user.token_version) !== payload.tv) {
     res.clearCookie(COOKIE, { path: '/' });
     return bad(res, 'Please log in again.', 401);
+  }
+  // Two people can be logged in on the same browser: the newest login replaces the cookie, so an
+  // older open tab would silently save entries under the wrong person. The app sends who it thinks
+  // it is; if that differs from the cookie's user we refuse and make the app reload.
+  const claimed = req.get('X-Session-User');
+  if (claimed && claimed !== user.id) {
+    return res.status(409).json({ code: 'session_changed', error: `This browser is now signed in as ${user.name}. Reloading so your entries are saved to the right person.` });
   }
   req.user = user;
   next();
@@ -251,8 +268,12 @@ app.delete('/api/users/:id', auth, adminOnly, wrap(async (req, res) => {
   const target = await one(`SELECT * FROM users WHERE id = ?`, [req.params.id]);
   if (!target) return bad(res, 'User not found.', 404);
   if (target.id === req.user.id) return bad(res, "You can't delete your own account.");
-  // Their entries are deleted too; household entries they added stay.
+  // Their personal entries are deleted too; household entries they added stay.
+  // Household items they paid for move to the shared family pool so the family totals stay the same.
   await db.batch([
+    { sql: `UPDATE entries SET debit_from = '${SHARED}' WHERE debit_from = ?`, args: [target.id] },
+    { sql: `UPDATE entries SET by_user = NULL WHERE by_user = ?`, args: [target.id] },
+    { sql: `UPDATE recurring SET debit_from = '${SHARED}' WHERE debit_from = ?`, args: [target.id] },
     { sql: `DELETE FROM entries WHERE owner = ?`, args: [target.id] },
     { sql: `DELETE FROM recurring WHERE user_id = ?`, args: [target.id] },
     { sql: `DELETE FROM budgets WHERE owner = ?`, args: [target.id] },
@@ -275,6 +296,7 @@ app.put('/api/settings', auth, adminOnly, wrap(async (req, res) => {
   if (!cats || !cats.length) return bad(res, 'Keep at least one category.');
   const list = (a) => (Array.isArray(a) ? a.map((s) => str(s, 60)).filter(Boolean).slice(0, 40) : []);
   const cfg = {
+    cfgVersion: CFG_VERSION,
     currency: str(b.currency, 5) || '₹',
     monthStartDay: Math.min(28, Math.max(1, parseInt(b.monthStartDay, 10) || 1)),
     categories: cats,
@@ -305,10 +327,15 @@ app.put('/api/budgets/:owner', auth, writerOnly, wrap(async (req, res) => {
 // ENTRIES
 // =====================================================================
 function rowToEntry(r) {
+  const hh = r.owner === HH;
   return {
     id: r.id, owner: r.owner, date: r.date, amount: Number(r.amount), type: r.type, cat: r.cat, sub: r.sub || '',
     mode: r.mode || '', note: r.note || '', tags: parseJSON(r.tags, []), recurring: r.recurring_id || null,
-    by: r.created_by, created: Number(r.created_at), edited: r.updated_at ? Number(r.updated_at) : null,
+    by: r.created_by,
+    // Household entries only: who spent it, and whose salary it is taken from (a member id or 'shared').
+    spentBy: hh ? (r.by_user || r.created_by || null) : null,
+    debitFrom: hh ? (r.debit_from || r.created_by || SHARED) : null,
+    created: Number(r.created_at), edited: r.updated_at ? Number(r.updated_at) : null,
   };
 }
 function cleanEntry(b) {
@@ -324,16 +351,51 @@ function canTouch(user, owner) {
   if (user.role === 'admin') return true;
   return owner === user.id || owner === HH;
 }
+// A member someone can be charged to: active and not view-only.
+async function chargeableMember(id) {
+  if (typeof id !== 'string' || !id) return false;
+  const u = await one(`SELECT role, active FROM users WHERE id = ?`, [id]);
+  return !!(u && u.active && u.role !== 'viewer');
+}
+const given = (v) => v !== undefined && v !== null && v !== '';
+
+// Works out who an entry belongs to and, for household entries, who spent the money and whose
+// salary it comes out of. Only the admin may put an entry under someone else.
+async function resolveOwnership(user, b, prev) {
+  const want = !given(b.owner) ? (prev ? prev.owner : user.id) : (b.owner === 'me' ? user.id : b.owner);
+  let owner;
+  if (want === HH) owner = HH;
+  else if (want === user.id) owner = user.id;
+  else if (user.role !== 'admin') return { error: 'You can only add or change your own entries and the household entries.', status: 403 };
+  else if (prev && want === prev.owner) owner = want;
+  else {
+    const t = await one(`SELECT id, role, active FROM users WHERE id = ?`, [want]);
+    if (!t || !t.active) return { error: 'Pick a valid family member.' };
+    if (t.role === 'viewer') return { error: 'A view-only member cannot have personal entries. Change their role to Member first.' };
+    owner = t.id;
+  }
+  if (owner !== HH) return { owner, spentBy: null, debitFrom: null };
+
+  const prevHH = !!prev && prev.owner === HH;
+  const prevSpent = prevHH ? (prev.by_user || prev.created_by || null) : null;
+  const prevDebit = prevHH ? (prev.debit_from || prev.created_by || SHARED) : null;
+  const spentBy = given(b.spentBy) ? b.spentBy : (prevSpent || user.id);
+  const debitFrom = given(b.debitFrom) ? b.debitFrom : (prevHH ? prevDebit : spentBy);
+  if (!(spentBy === prevSpent || await chargeableMember(spentBy))) return { error: 'Pick who spent this (an active family member).' };
+  if (!(debitFrom === SHARED || debitFrom === prevDebit || await chargeableMember(debitFrom))) return { error: 'Pick whose salary this is taken from (a family member or the shared pool).' };
+  return { owner: HH, spentBy, debitFrom };
+}
 
 app.post('/api/entries', auth, writerOnly, wrap(async (req, res) => {
   const b = req.body || {};
-  const owner = b.owner === HH ? HH : req.user.id;
   const e = cleanEntry(b);
   if (e.error) return bad(res, e.error);
+  const o = await resolveOwnership(req.user, b, null);
+  if (o.error) return bad(res, o.error, o.status || 400);
   const id = newId();
   await run(
-    `INSERT INTO entries (id, owner, date, amount, type, cat, sub, mode, note, tags, created_by, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`,
-    [id, owner, e.date, e.amount, e.type, e.cat, e.sub, e.mode, e.note, e.tags, req.user.id, now()]
+    `INSERT INTO entries (id, owner, date, amount, type, cat, sub, mode, note, tags, created_by, created_at, by_user, debit_from) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+    [id, o.owner, e.date, e.amount, e.type, e.cat, e.sub, e.mode, e.note, e.tags, req.user.id, now(), o.spentBy, o.debitFrom]
   );
   res.json({ entry: rowToEntry(await one(`SELECT * FROM entries WHERE id = ?`, [id])) });
 }));
@@ -341,11 +403,14 @@ app.post('/api/entries', auth, writerOnly, wrap(async (req, res) => {
 app.put('/api/entries/:id', auth, writerOnly, wrap(async (req, res) => {
   const row = await one(`SELECT * FROM entries WHERE id = ?`, [req.params.id]);
   if (!row || !canTouch(req.user, row.owner)) return bad(res, 'Entry not found.', 404);
-  const e = cleanEntry(req.body || {});
+  const b = req.body || {};
+  const e = cleanEntry(b);
   if (e.error) return bad(res, e.error);
+  const o = await resolveOwnership(req.user, b, row);
+  if (o.error) return bad(res, o.error, o.status || 400);
   await run(
-    `UPDATE entries SET date=?, amount=?, type=?, cat=?, sub=?, mode=?, note=?, tags=?, updated_at=? WHERE id=?`,
-    [e.date, e.amount, e.type, e.cat, e.sub, e.mode, e.note, e.tags, now(), row.id]
+    `UPDATE entries SET owner=?, date=?, amount=?, type=?, cat=?, sub=?, mode=?, note=?, tags=?, by_user=?, debit_from=?, updated_at=? WHERE id=?`,
+    [o.owner, e.date, e.amount, e.type, e.cat, e.sub, e.mode, e.note, e.tags, o.spentBy, o.debitFrom, now(), row.id]
   );
   res.json({ entry: rowToEntry(await one(`SELECT * FROM entries WHERE id = ?`, [row.id])) });
 }));
@@ -361,7 +426,8 @@ app.delete('/api/entries/:id', auth, writerOnly, wrap(async (req, res) => {
 // RECURRING
 // =====================================================================
 function rowToRule(r) {
-  return { id: r.id, owner: r.user_id, target: r.target === 'household' ? HH : 'me', type: r.type, amount: Number(r.amount), day: Number(r.day), cat: r.cat, sub: r.sub || '', mode: r.mode || '', note: r.note || '', startYm: r.start_ym, lastPosted: r.last_posted || '', paused: !!r.paused, installments: r.installments ? Number(r.installments) : null, maturity: r.maturity ? Number(r.maturity) : null };
+  const hh = r.target === 'household';
+  return { id: r.id, owner: r.user_id, target: hh ? HH : 'me', debitFrom: hh ? (r.debit_from || r.user_id) : null, type: r.type, amount: Number(r.amount), day: Number(r.day), cat: r.cat, sub: r.sub || '', mode: r.mode || '', note: r.note || '', startYm: r.start_ym, lastPosted: r.last_posted || '', paused: !!r.paused, installments: r.installments ? Number(r.installments) : null, maturity: r.maturity ? Number(r.maturity) : null };
 }
 function cleanRule(b) {
   const amount = Number(b.amount), day = parseInt(b.day, 10);
@@ -373,62 +439,109 @@ function cleanRule(b) {
   const maturity = mat > 0 && mat < 1e11 ? mat : null;
   return { amount, day, installments, maturity, type: TYPES.includes(b.type) ? b.type : 'expense', target: b.target === HH ? 'household' : 'me', cat: str(b.cat, 60), sub: str(b.sub, 60), mode: str(b.mode, 60), note: str(b.note, 300) };
 }
+// Who a rule belongs to (admin can set it up for any member) and, for household rules, whose salary pays.
+async function resolveRuleOwner(user, b, prev, target) {
+  const want = !given(b.userId) ? (prev ? prev.user_id : user.id) : (b.userId === 'me' ? user.id : b.userId);
+  let userId;
+  if (want === user.id) userId = user.id;
+  else if (user.role !== 'admin') return { error: 'You can only manage your own recurring entries.', status: 403 };
+  else if (prev && want === prev.user_id) userId = want;
+  else if (await chargeableMember(want)) userId = want;
+  else return { error: 'Pick a valid family member.' };
+  if (target !== 'household') return { userId, debitFrom: null };
+  const prevDebit = prev && prev.target === 'household' ? (prev.debit_from || prev.user_id) : null;
+  const debitFrom = given(b.debitFrom) ? b.debitFrom : (prevDebit || userId);
+  if (!(debitFrom === SHARED || debitFrom === prevDebit || await chargeableMember(debitFrom))) return { error: 'Pick whose salary this is taken from (a family member or the shared pool).' };
+  return { userId, debitFrom };
+}
+// "Today" in India (IST), so monthly entries post on the right local day.
+function istToday() {
+  const t = new Date();
+  const ist = new Date(t.getTime() + (330 + t.getTimezoneOffset()) * 60000);
+  return { y: ist.getFullYear(), m: ist.getMonth() + 1, d: ist.getDate(), ym: ist.getFullYear() + '-' + pad(ist.getMonth() + 1) };
+}
 
 app.post('/api/recurring', auth, writerOnly, wrap(async (req, res) => {
-  const r = cleanRule(req.body || {});
+  const b = req.body || {};
+  const r = cleanRule(b);
   if (r.error) return bad(res, r.error);
-  const startYm = isYm(req.body.startYm) ? req.body.startYm : new Date().toISOString().slice(0, 7);
+  const o = await resolveRuleOwner(req.user, b, null, r.target);
+  if (o.error) return bad(res, o.error, o.status || 400);
+  const startYm = isYm(b.startYm) ? b.startYm : istToday().ym;
   const id = newId();
   await run(
-    `INSERT INTO recurring (id, user_id, target, type, amount, day, cat, sub, mode, note, start_ym, installments, maturity, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
-    [id, req.user.id, r.target, r.type, r.amount, r.day, r.cat, r.sub, r.mode, r.note, startYm, r.installments, r.maturity, now()]
+    `INSERT INTO recurring (id, user_id, target, type, amount, day, cat, sub, mode, note, start_ym, installments, maturity, created_at, debit_from) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)`,
+    [id, o.userId, r.target, r.type, r.amount, r.day, r.cat, r.sub, r.mode, r.note, startYm, r.installments, r.maturity, now(), o.debitFrom]
   );
   await postRecurring();
-  res.json({ ok: true });
+  res.json({ ok: true, id });
 }));
 
 app.put('/api/recurring/:id', auth, writerOnly, wrap(async (req, res) => {
-  const row = await one(`SELECT * FROM recurring WHERE id = ? AND user_id = ?`, [req.params.id, req.user.id]);
-  if (!row) return bad(res, 'Not found.', 404);
-  if (req.body && Object.keys(req.body).length === 1 && 'paused' in req.body) {
-    await run(`UPDATE recurring SET paused = ? WHERE id = ?`, [req.body.paused ? 1 : 0, row.id]);
+  const row = await one(`SELECT * FROM recurring WHERE id = ?`, [req.params.id]);
+  if (!row || (row.user_id !== req.user.id && req.user.role !== 'admin')) return bad(res, 'Not found.', 404);
+  const b = req.body || {};
+  if (Object.keys(b).length === 1 && 'paused' in b) {
+    await run(`UPDATE recurring SET paused = ? WHERE id = ?`, [b.paused ? 1 : 0, row.id]);
   } else {
-    const r = cleanRule(req.body || {});
+    const r = cleanRule(b);
     if (r.error) return bad(res, r.error);
-    await run(`UPDATE recurring SET target=?, type=?, amount=?, day=?, cat=?, sub=?, mode=?, note=?, installments=?, maturity=? WHERE id=?`, [r.target, r.type, r.amount, r.day, r.cat, r.sub, r.mode, r.note, r.installments, r.maturity, row.id]);
+    const o = await resolveRuleOwner(req.user, b, row, r.target);
+    if (o.error) return bad(res, o.error, o.status || 400);
+    await run(`UPDATE recurring SET user_id=?, target=?, debit_from=?, type=?, amount=?, day=?, cat=?, sub=?, mode=?, note=?, installments=?, maturity=? WHERE id=?`,
+      [o.userId, r.target, o.debitFrom, r.type, r.amount, r.day, r.cat, r.sub, r.mode, r.note, r.installments, r.maturity, row.id]);
+    // Months already posted keep what was recorded. By default this month's entry follows the change too.
+    if (b.applyCurrent !== false) await syncCurrentMonth(row.id);
   }
   await postRecurring();
   res.json({ ok: true });
 }));
 
 app.delete('/api/recurring/:id', auth, writerOnly, wrap(async (req, res) => {
-  await run(`DELETE FROM recurring WHERE id = ? AND user_id = ?`, [req.params.id, req.user.id]);
+  const row = await one(`SELECT * FROM recurring WHERE id = ?`, [req.params.id]);
+  if (row && (row.user_id === req.user.id || req.user.role === 'admin')) await run(`DELETE FROM recurring WHERE id = ?`, [row.id]);
   res.json({ ok: true });
 }));
+
+// Copies an edited rule onto the entry it already posted for the current month (if there is one).
+async function syncCurrentMonth(ruleId) {
+  const r = await one(`SELECT * FROM recurring WHERE id = ?`, [ruleId]);
+  if (!r) return;
+  const t = istToday();
+  const eid = 'rec_' + r.id + '_' + t.ym;
+  const e = await one(`SELECT * FROM entries WHERE id = ?`, [eid]);
+  if (!e) return;
+  const hh = r.target === 'household';
+  const day = Math.min(Number(r.day), new Date(t.y, t.m, 0).getDate());
+  const date = day <= t.d ? t.ym + '-' + pad(day) : e.date;   // never move it into the future
+  await run(
+    `UPDATE entries SET owner=?, date=?, amount=?, type=?, cat=?, sub=?, mode=?, note=?, created_by=?, by_user=?, debit_from=?, updated_at=? WHERE id=?`,
+    [hh ? HH : r.user_id, date, r.amount, r.type, r.cat, r.sub, r.mode, r.note, r.user_id, hh ? r.user_id : null, hh ? (r.debit_from || r.user_id) : null, now(), eid]
+  );
+}
 
 // Adds any due monthly entries. Entry ids are fixed per rule+month, so running twice never duplicates.
 // Posts due entries for EVERY active member's rules, so the admin always sees up-to-date family figures.
 async function postRecurring() {
   const rules = await all(`SELECT r.* FROM recurring r JOIN users u ON u.id = r.user_id WHERE r.paused = 0 AND u.active = 1 AND u.role != 'viewer'`);
   if (!rules.length) return;
-  const today = new Date();
-  // Use IST for "today" so entries post on the right local day.
-  const ist = new Date(today.getTime() + (330 + today.getTimezoneOffset()) * 60000);
-  const curYm = ist.getFullYear() + '-' + pad(ist.getMonth() + 1);
+  const t = istToday();
+  const curYm = t.ym;
   const nextYm = (ym) => { let [y, m] = ym.split('-').map(Number); m++; if (m > 12) { m = 1; y++; } return y + '-' + pad(m); };
   const monthIndex = (from, to) => { const [y1, m1] = from.split('-').map(Number); const [y2, m2] = to.split('-').map(Number); return (y2 - y1) * 12 + (m2 - m1); };
   for (const r of rules) {
     let ym = r.last_posted ? nextYm(r.last_posted) : r.start_ym;
     let last = r.last_posted || '';
+    const hh = r.target === 'household';
     const stmts = [];
     for (let guard = 0; ym <= curYm && guard < 24; guard++) {
       const [y, m] = ym.split('-').map(Number);
       const day = Math.min(Number(r.day), new Date(y, m, 0).getDate());
-      if (ym === curYm && day > ist.getDate()) break;
+      if (ym === curYm && day > t.d) break;
       if (r.installments && monthIndex(r.start_ym, ym) >= Number(r.installments)) break; // tenure finished
       stmts.push({
-        sql: `INSERT OR IGNORE INTO entries (id, owner, date, amount, type, cat, sub, mode, note, tags, recurring_id, created_by, created_at) VALUES (?,?,?,?,?,?,?,?,?,'[]',?,?,?)`,
-        args: ['rec_' + r.id + '_' + ym, r.target === 'household' ? HH : r.user_id, ym + '-' + pad(day), r.amount, r.type, r.cat, r.sub, r.mode, r.note, r.id, r.user_id, now()],
+        sql: `INSERT OR IGNORE INTO entries (id, owner, date, amount, type, cat, sub, mode, note, tags, recurring_id, created_by, created_at, by_user, debit_from) VALUES (?,?,?,?,?,?,?,?,?,'[]',?,?,?,?,?)`,
+        args: ['rec_' + r.id + '_' + ym, hh ? HH : r.user_id, ym + '-' + pad(day), r.amount, r.type, r.cat, r.sub, r.mode, r.note, r.id, r.user_id, now(), hh ? r.user_id : null, hh ? (r.debit_from || r.user_id) : null],
       });
       last = ym; ym = nextYm(ym);
     }
@@ -470,11 +583,49 @@ app.get('/api/bootstrap', auth, wrap(async (req, res) => {
   res.json({
     me: publicUser(u),
     config,
-    // Non-admins only see names (for "who added this" on household entries).
-    users: users.map((x) => (u.role === 'admin' ? publicUser(x) : { id: x.id, name: x.name, relationship: x.relationship || '' })),
+    // Non-admins only get names (to pick who spent / whose salary on household entries).
+    users: users.map((x) => (u.role === 'admin' ? publicUser(x) : { id: x.id, name: x.name, relationship: x.relationship || '', role: x.role, active: true })),
     entries: entries.map(rowToEntry),
     budgets,
     recurring,
+  });
+}));
+
+// =====================================================================
+// DATABASE CHECK (admin) — proves where data is stored and that saving works
+// =====================================================================
+app.get('/api/diagnostics', auth, adminOnly, wrap(async (req, res) => {
+  const info = dbInfo();
+  // Write something and read it straight back: this exercises the real database connection.
+  const stamp = String(Date.now());
+  let writeOk = false, writeError = '';
+  try {
+    await run(`INSERT INTO settings (key, value) VALUES ('diag_ping', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value`, [stamp]);
+    const back = await one(`SELECT value FROM settings WHERE key = 'diag_ping'`);
+    writeOk = !!back && back.value === stamp;
+  } catch (e) { writeError = 'The database refused the test write.'; }
+  const total = async (sql) => Number((await one(sql)).n);
+  const members = (await all(`SELECT u.id, u.name, u.relationship, u.role, u.active, u.last_login,
+      (SELECT COUNT(*) FROM entries e WHERE e.owner = u.id) AS entries,
+      (SELECT MAX(e.created_at) FROM entries e WHERE e.owner = u.id) AS last_entry,
+      (SELECT COUNT(*) FROM recurring r WHERE r.user_id = u.id) AS rules
+    FROM users u ORDER BY u.created_at`)).map((m) => ({
+    id: m.id, name: m.name, relationship: m.relationship || '', role: m.role, active: !!m.active,
+    lastLogin: m.last_login ? Number(m.last_login) : null, entries: Number(m.entries), lastEntry: m.last_entry ? Number(m.last_entry) : null, rules: Number(m.rules),
+  }));
+  const hh = await one(`SELECT COUNT(*) AS n, MAX(created_at) AS last FROM entries WHERE owner = ?`, [HH]);
+  const names = Object.fromEntries(members.map((m) => [m.id, m.name]));
+  const recent = (await all(`SELECT owner, created_by, date, amount, type, cat, created_at FROM entries ORDER BY created_at DESC LIMIT 8`)).map((e) => ({
+    owner: e.owner === HH ? 'Household' : (names[e.owner] || 'Former member'), by: names[e.created_by] || 'Former member',
+    date: e.date, amount: Number(e.amount), type: e.type, cat: e.cat, at: Number(e.created_at),
+  }));
+  res.json({
+    db: { ...info, writeOk, writeError },
+    server: { time: Date.now(), nodeEnv: process.env.NODE_ENV || '', hasJwtSecret: !!process.env.JWT_SECRET },
+    totals: { users: await total(`SELECT COUNT(*) AS n FROM users`), entries: await total(`SELECT COUNT(*) AS n FROM entries`), recurring: await total(`SELECT COUNT(*) AS n FROM recurring`) },
+    household: { entries: Number(hh.n), lastEntry: hh.last ? Number(hh.last) : null },
+    members, recent,
+    you: { id: req.user.id, name: req.user.name },
   });
 }));
 
