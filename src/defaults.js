@@ -42,3 +42,32 @@ export function upgradeConfig(cfg) {
   out.cfgVersion = CFG_VERSION;
   return out;
 }
+
+const clip = (v, max = 200) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
+const cleanList = (a) => (Array.isArray(a) ? a.map((x) => clip(x, 60)).filter(Boolean).slice(0, 40) : []);
+
+// Turns settings sent by the app (or found in a backup file) into a safe, complete config.
+// Returns null when there is no category at all.
+export function cleanConfig(b, makeId) {
+  b = b && typeof b === 'object' ? b : {};
+  const cats = Array.isArray(b.categories) ? b.categories.slice(0, 60).map((c) => {
+    c = c && typeof c === 'object' ? c : {};
+    return {
+      id: clip(c.id, 40) || makeId(),
+      name: clip(c.name, 60) || 'Category',
+      color: /^#[0-9a-fA-F]{6}$/.test(c.color) ? c.color : '#9a9992',
+      subs: Array.isArray(c.subs) ? c.subs.map((x) => clip(x, 60)).filter(Boolean).slice(0, 40) : [],
+    };
+  }) : null;
+  if (!cats || !cats.length) return null;
+  const inc = cleanList(b.incomeCategories), sav = cleanList(b.savingCategories), modes = cleanList(b.modes);
+  return {
+    cfgVersion: CFG_VERSION,
+    currency: clip(b.currency, 5) || '₹',
+    monthStartDay: Math.min(28, Math.max(1, parseInt(b.monthStartDay, 10) || 1)),
+    categories: cats,
+    incomeCategories: inc.length ? inc : DEFAULT_CONFIG.incomeCategories,
+    savingCategories: sav.length ? sav : DEFAULT_CONFIG.savingCategories,
+    modes: modes.length ? modes : DEFAULT_CONFIG.modes,
+  };
+}

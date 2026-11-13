@@ -4,7 +4,8 @@ import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
 import crypto from 'node:crypto';
 import { ensureSchema, one, all, run, db, dbProblem, dbInfo } from './db.js';
-import { DEFAULT_CONFIG, CFG_VERSION, upgradeConfig } from './defaults.js';
+import { DEFAULT_CONFIG, CFG_VERSION, upgradeConfig, cleanConfig } from './defaults.js';
+import { restoreBackup } from './restore.js';
 
 const IS_PROD = process.env.NODE_ENV === 'production' || !!process.env.VERCEL || !!process.env.RENDER;
 const JWT_SECRET = process.env.JWT_SECRET || (IS_PROD ? null : 'dev-only-secret-change-me');
@@ -20,7 +21,9 @@ const DUMMY_HASH = bcrypt.hashSync('not-a-real-password', 10);
 
 const app = express();
 app.disable('x-powered-by');
-app.use(express.json({ limit: '200kb' }));
+// Normal requests are small. The restore upload (a whole backup file) has its own, larger limit.
+const smallJson = express.json({ limit: '200kb' });
+app.use((req, res, next) => (req.path === '/api/restore' ? next() : smallJson(req, res, next)));
 app.use(cookieParser());
 
 // ---------- basic security headers ----------
@@ -286,24 +289,8 @@ app.delete('/api/users/:id', auth, adminOnly, wrap(async (req, res) => {
 // SETTINGS
 // =====================================================================
 app.put('/api/settings', auth, adminOnly, wrap(async (req, res) => {
-  const b = req.body || {};
-  const cats = Array.isArray(b.categories) ? b.categories.slice(0, 60).map((c) => ({
-    id: str(c.id, 40) || newId(),
-    name: str(c.name, 60) || 'Category',
-    color: /^#[0-9a-fA-F]{6}$/.test(c.color) ? c.color : '#9a9992',
-    subs: Array.isArray(c.subs) ? c.subs.map((s) => str(s, 60)).filter(Boolean).slice(0, 40) : [],
-  })) : null;
-  if (!cats || !cats.length) return bad(res, 'Keep at least one category.');
-  const list = (a) => (Array.isArray(a) ? a.map((s) => str(s, 60)).filter(Boolean).slice(0, 40) : []);
-  const cfg = {
-    cfgVersion: CFG_VERSION,
-    currency: str(b.currency, 5) || '₹',
-    monthStartDay: Math.min(28, Math.max(1, parseInt(b.monthStartDay, 10) || 1)),
-    categories: cats,
-    incomeCategories: list(b.incomeCategories).length ? list(b.incomeCategories) : DEFAULT_CONFIG.incomeCategories,
-    savingCategories: list(b.savingCategories).length ? list(b.savingCategories) : DEFAULT_CONFIG.savingCategories,
-    modes: list(b.modes).length ? list(b.modes) : DEFAULT_CONFIG.modes,
-  };
+  const cfg = cleanConfig(req.body, newId);
+  if (!cfg) return bad(res, 'Keep at least one category.');
   await run(`INSERT INTO settings (key, value) VALUES ('config', ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value`, [JSON.stringify(cfg)]);
   res.json({ config: cfg });
 }));
@@ -644,9 +631,20 @@ app.get('/api/backup', auth, adminOnly, wrap(async (req, res) => {
   res.json({ app: 'family-expense-tracker', exportedAt: new Date().toISOString(), config: await getConfig(), users, entries, recurring, budgets });
 }));
 
+// =====================================================================
+// RESTORE (admin) — load a backup file into this database (adds what is missing, never overwrites)
+// =====================================================================
+app.post('/api/restore', auth, adminOnly, express.json({ limit: '4mb' }), wrap(async (req, res) => {
+  const r = await restoreBackup(req.body, req.user);
+  if (r.error) return bad(res, r.error);
+  res.json(r);
+}));
+
 // ---------- errors ----------
 app.use('/api', (req, res) => bad(res, 'Not found.', 404));
 app.use((err, req, res, next) => {
+  if (err && (err.type === 'entity.too.large' || err.status === 413)) return res.status(413).json({ error: 'That file is too large to send in one go.' });
+  if (err && err.type === 'entity.parse.failed') return res.status(400).json({ error: 'That is not a valid backup file (it could not be read).' });
   console.error(err);
   if (res.headersSent) return next(err);
   res.status(500).json({ error: 'Something went wrong on the server.' });
