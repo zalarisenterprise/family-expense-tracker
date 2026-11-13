@@ -188,6 +188,61 @@ details.mp[open] .chev{transform:rotate(90deg)}
 .mp .card{box-shadow:none;background:var(--bg)}
 .mp-head{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px}
 @media (max-width:1000px){.mstats{grid-template-columns:repeat(2,1fr)}}
+/* multi-select (family view) */
+.msel{position:relative;display:inline-block}
+.msel-btn{display:inline-flex;align-items:center;gap:8px;max-width:100%}
+.msel-btn svg{width:16px;height:16px;flex:none}
+.msel-pop{position:absolute;z-index:30;top:calc(100% + 6px);left:0;min-width:320px;max-width:92vw;max-height:62vh;overflow:auto;background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:0 12px 40px rgba(0,0,0,.22);padding:6px}
+.msel-row{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:8px;cursor:pointer;min-height:40px}
+.msel-row:hover{background:var(--surface-2)}
+.msel-row input{width:18px;height:18px;flex:none;accent-color:var(--accent)}
+.msel-row .only{margin-left:auto;border:none;background:transparent;color:var(--accent);font-weight:600;font-size:12.5px;cursor:pointer;padding:4px 8px;border-radius:6px}
+.msel-row .only:hover{background:var(--accent-soft)}
+.msel-sep{height:1px;background:var(--line);margin:4px 2px}
+.msel-foot{display:flex;justify-content:space-between;gap:8px;padding:6px 6px 2px}
+.hint{font-size:12px;color:var(--ink-3);font-weight:400}
+.only-sm{display:none}
+.fab{display:none}
+.subpick select,.subpick input{width:100%}
+.diag-ok{color:var(--good-ink);font-weight:600}.diag-bad{color:var(--crit);font-weight:600}
+.more-item{display:flex;align-items:center;gap:12px;padding:12px 8px;border-radius:10px;color:var(--ink);text-decoration:none;font-weight:500;border-bottom:1px solid var(--line)}
+.more-item svg{width:20px;height:20px;color:var(--ink-2)}
+.more-item:last-of-type{border-bottom:none}
+.payrow{display:grid;grid-template-columns:1fr 1fr;gap:12px;background:var(--surface-2);border-radius:10px;padding:12px}
+.payrow .full{grid-column:1/-1}
+@media (max-width:760px){
+  .only-sm{display:block}
+  .payrow{grid-template-columns:1fr}
+  .fab{display:grid;place-items:center;position:fixed;right:16px;bottom:76px;width:54px;height:54px;border-radius:50%;background:var(--accent);color:#fff;font-size:30px;line-height:1;border:none;box-shadow:0 6px 20px rgba(0,0,0,.28);z-index:45;cursor:pointer}
+  .msel{display:block;width:100%}
+  .msel-btn{width:100%;justify-content:space-between}
+  .msel-pop{position:fixed;left:10px;right:10px;top:auto;bottom:74px;min-width:0;max-height:64vh;z-index:48}
+  .catrow{grid-template-columns:34px 1fr 40px}
+  .catrow input[type=color]{grid-column:1;grid-row:1}
+  .catrow [data-k=name]{grid-column:2;grid-row:1}
+  .catrow button{grid-column:3;grid-row:1}
+  .catrow [data-k=subs]{grid-column:1/-1;grid-row:2}
+  .top .btn{white-space:normal}
+  /* tables become one card per row on phones, so every column and every Edit / Delete button is reachable without side-scrolling */
+  table.stack,table.stack tbody{display:block}
+  table.stack thead{display:none}
+  table.stack tr{display:flex;flex-direction:column;padding:10px 6px;border-bottom:1px solid var(--line)}
+  table.stack tr:last-child{border-bottom:none}
+  table.stack td{display:flex;justify-content:space-between;align-items:baseline;gap:14px;border:none;padding:3px 2px;text-align:right;white-space:normal}
+  table.stack td.hide-sm{display:flex}
+  table.stack td::before{content:attr(data-label);color:var(--ink-3);font-size:12px;font-weight:500;text-align:left;flex:none;max-width:42%}
+  table.stack td:not([data-label])::before{content:none}
+  table.stack td.first{display:block;text-align:left;font-size:14px;padding-bottom:4px;order:-1}
+  table.stack td.first::before{content:none}
+  table.stack td.acts{display:flex;justify-content:flex-start;flex-wrap:wrap;gap:4px;padding-top:6px;order:99}
+  table.stack td.acts::before{content:none}
+  table.stack td.c-amt{order:2;font-size:15px}
+  table.stack td.c-date{order:3}
+  table.stack td.c-note{order:4}
+  table.stack td.c-mode{order:5}
+  table.stack td.c-who{order:6}
+  .filters select,.filters .dfield,.filters input[type=search]{flex:1 1 140px;min-width:0}
+}
 </style>
 </head>
 <body>
@@ -240,6 +295,7 @@ const DEFAULT_CONFIG = {
   categories: [
     { id: 'food', name: 'Food & Groceries', color: PALETTE[0], subs: ['Groceries', 'Vegetables', 'Hotel', 'Snacks'] },
     { id: 'home', name: 'Rent & Home', color: PALETTE[1], subs: ['Rent', 'Maintenance', 'Furniture'] },
+    { id: 'household', name: 'Household', color: '#0e9aa7', subs: ['Maid / Help', 'Cleaning supplies', 'Kitchen items', 'Gas cylinder', 'Repairs', 'Appliances', 'Home decor', 'Pest control', 'Water can / purifier', 'Laundry'] },
     { id: 'bills', name: 'Bills & Utilities', color: PALETTE[2], subs: ['EB Bill', 'Water', 'Internet', 'Mobile recharge', 'Gas'] },
     { id: 'travel', name: 'Transport', color: PALETTE[3], subs: ['Fuel', 'Bus / Train', 'Cab / Auto', 'Vehicle service'] },
     { id: 'shop', name: 'Shopping', color: PALETTE[4], subs: ['Clothes', 'Electronics', 'Online'] },
@@ -251,7 +307,7 @@ const DEFAULT_CONFIG = {
   ],
   incomeCategories: ['Salary', 'Business', 'Interest', 'Gift', 'Other income'],
   savingCategories: ['SIP / Mutual fund', 'RD', 'Chit fund', 'FD', 'PPF / EPF', 'Gold', 'Stocks', 'Other savings'],
-  modes: ['Cash', 'UPI', 'Debit card', 'Credit card', 'Bank transfer'],
+  modes: ['Cash', 'UPI', 'Debit card', 'Credit card', 'Bank transfer', 'Auto Debit'],
   budgets: {},           // household budgets by category id
   householdTotal: 0,     // household monthly budget
 };
@@ -263,14 +319,16 @@ const S = {
   members: {}, names: {}, entries: [], budgets: {}, recurring: {},
   loaded: false, stale: false, loadError: '', lastLoad: 0,
   view: 'dashboard',
-  f: { scope: 'me', period: 'this', from: '', to: '', cat: '', mode: '', type: '', q: '', rwho: 'me' },
-  mpOpen: {},
+  f: { scope: 'me', period: 'this', from: '', to: '', cat: '', mode: '', type: '', q: '', rwho: 'me', fam: [] },
+  mpOpen: {}, famOpen: false, diag: null,
 };
 const HH = 'household';
+const SHARED = 'shared';   // household items paid from the family pool, not from one person's salary
 
 /* ============ server API ============ */
 async function api(method, path, body) {
   const headers = {};
+  if (S.me) headers['X-Session-User'] = S.me;   // lets the server catch "someone else logged in on this browser"
   if (method !== 'GET') headers['X-Requested-With'] = 'fetch';
   if (body !== undefined) headers['Content-Type'] = 'application/json';
   let r;
@@ -278,8 +336,14 @@ async function api(method, path, body) {
   catch (e) { throw new Error("Can't reach the server. Check your internet connection."); }
   let d = {}; try { d = await r.json(); } catch (e) {}
   if (r.status === 401) { location.replace('/login.html'); throw new Error('Please log in.'); }
+  if (r.status === 409 && d.code === 'session_changed') { sessionChanged(d.error); throw new Error('Please log in.'); }
   if (!r.ok) throw new Error(d.error || 'Something went wrong. Please try again.');
   return d;
+}
+function sessionChanged(msg) {
+  if (S.sessionLost) return; S.sessionLost = true;
+  openModal(`<h2>Signed in as someone else</h2><p class="sub">${esc(msg || 'Another person logged in on this browser.')}</p><p class="sub">Nothing was saved from this screen. Reload to continue as the person who is signed in now.</p><div class="actions"><button class="btn primary" data-x="reload">Reload now</button></div>`, m => { m.querySelector('[data-x=reload]').onclick = () => location.reload(); });
+  setTimeout(() => location.reload(), 4000);
 }
 let loading = null;
 function load() {
@@ -290,6 +354,8 @@ function load() {
       S.meUser = d.me; S.me = d.me.id;
       S.isAdmin = d.me.role === 'admin'; S.canWrite = d.me.role !== 'viewer';
       if (!S.canWrite) S.f.scope = HH;
+      if (S.isAdmin && !S.init) { S.f.scope = 'all'; S.f.rwho = 'all'; }   // admin starts on everyone's data, not just their own
+      S.init = true;
       S.config = { ...structuredClone(DEFAULT_CONFIG), ...d.config };
       CUR = S.config.currency || '₹';
       S.members = {}; S.names = {};
@@ -297,11 +363,12 @@ function load() {
       S.entries = d.entries || [];
       S.budgets = d.budgets || {};
       S.recurring = {}; (d.recurring || []).forEach(r => { S.recurring[r.id] = r; });
+      fixScope();
       S.loaded = true; S.stale = false; S.lastLoad = Date.now();
       if (S.meUser.mustChangePassword && S.view !== 'account') { location.hash = 'account'; }
       if (!S.routed) { S.routed = true; route(); } else render();   // first load: re-check the URL now that we know the role (deep links to #family etc.)
     } catch (e) {
-      if (e.message !== 'Please log in.') { S.stale = true; S.loadError = e.message; render(); }
+      if (e.message !== 'Please log in.' && !S.sessionLost) { S.stale = true; S.loadError = e.message; render(); }
     } finally { loading = null; }
   })();
   return loading;
@@ -314,25 +381,50 @@ function boot() {
   route();
   load();
   window.addEventListener('focus', () => { if (Date.now() - S.lastLoad > 30000) load(); });
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && Date.now() - S.lastLoad > 4000) load(); });
+  document.addEventListener('click', e => { if (S.famOpen && !e.target.closest('.msel')) { S.famOpen = false; render(); } });
   setInterval(() => { if (document.visibilityState === 'visible') load(); }, 120000);
 }
 
 function allItems(owner) { return S.entries.filter(e => e.owner === owner); }
+// Whose money an entry moves: a personal entry belongs to its owner; a household entry comes out of
+// (or, for income, goes into) the salary of the member it was "debited from", or the shared family pool.
+function payerOf(e) { return e.owner === HH ? (e.debitFrom || SHARED) : e.owner; }
+// Everything that counts for one person: their own entries + the household entries taken from their salary.
+function personItems(id) { return S.entries.filter(e => payerOf(e) === id); }
 function scopeItems(scope) {
-  if (scope === 'me') return allItems(S.me);
+  if (scope === 'me') return personItems(S.me);
   if (scope === 'all') return S.entries.slice();
-  return allItems(scope);
+  if (scope === HH) return allItems(HH);
+  return personItems(scope);        // a member's id, or 'shared'
 }
 function scopeLabel(scope) {
   if (scope === 'me') return 'My expenses';
-  if (scope === HH) return 'Household (shared)';
+  if (scope === HH) return 'Household (all shared items)';
+  if (scope === SHARED) return 'Shared household pool';
   if (scope === 'all') return 'Everyone';
   return nameOf(scope);
 }
+// Keeps the chosen filters valid after members are added, removed or the role changes.
+function fixScope() {
+  const ok = new Set(['me', HH]);
+  if (S.isAdmin) { ok.add('all'); ok.add(SHARED); Object.keys(S.members).forEach(id => ok.add(id)); }
+  if (!ok.has(S.f.scope)) S.f.scope = S.isAdmin ? 'all' : 'me';
+  if (S.f.scope === S.me) S.f.scope = 'me';
+  if (S.isAdmin) {
+    const known = new Set([SHARED, ...Object.keys(S.members)]);
+    S.f.fam = (S.f.fam || []).filter(id => known.has(id));
+    if (S.f.rwho !== 'all' && S.f.rwho !== 'me' && !S.members[S.f.rwho]) S.f.rwho = 'all';
+  }
+}
+// Members someone can be charged to or credited: active and not view-only (you first).
+function chargeable() {
+  return Object.keys(S.members).filter(id => S.members[id].active !== false && S.members[id].role !== 'viewer').sort((a, b) => (b === S.me) - (a === S.me));
+}
 const REL_OPTIONS = ['Self', 'Spouse', 'Wife', 'Husband', 'Father', 'Mother', 'Son', 'Daughter', 'Brother', 'Sister', 'Grandfather', 'Grandmother', 'Father-in-law', 'Mother-in-law', 'Uncle', 'Aunt', 'Cousin', 'Friend'];
 function relOf(id) { return (S.members[id] && S.members[id].relationship) || ''; }
-function rawName(id) { return id === HH ? 'Household' : (S.names[id] || 'Former member'); }
-function nameOf(id) { if (id === HH) return 'Household'; if (id === S.me) return (S.names[id] || 'Me') + ' (you)'; const r = relOf(id); return (S.names[id] || 'Former member') + (r ? ' · ' + r : ''); }
+function rawName(id) { return id === HH ? 'Household' : id === SHARED ? 'Shared pool' : (S.names[id] || 'Former member'); }
+function nameOf(id) { if (id === HH) return 'Household'; if (id === SHARED) return 'Shared household pool'; if (id === S.me) return (S.names[id] || 'Me') + ' (you)'; const r = relOf(id); return (S.names[id] || 'Former member') + (r ? ' · ' + r : ''); }
 const SAVE_COLOR = '#6250d6';
 const TYPE_LABEL = { expense: 'Expense', income: 'Income', saving: 'Savings' };
 function typeOf(i) { return i.type || 'expense'; }
@@ -415,12 +507,27 @@ function route() {
 function renderChrome() {
   const v = views();
   $('#nav').innerHTML = v.map(([k, l]) => `<a href="#${k}" class="${S.view === k ? 'active' : ''}"><svg viewBox="0 0 24 24">${ICONS[k]}</svg>${l}</a>`).join('');
-  $('#mnav').innerHTML = v.filter(x => !['help', 'settings', 'users', 'recurring'].includes(x[0])).map(([k, l]) => `<a href="#${k}" class="${S.view === k ? 'active' : ''}"><svg viewBox="0 0 24 24">${ICONS[k]}</svg>${l.split(' ')[0]}</a>`).join('');
+  // Phone: four main tabs + "More", so every page (Settings, EMI & savings, Family members, Help…) is reachable.
+  const main = v.filter(x => ['dashboard', 'transactions', 'family', 'budgets', 'recurring'].includes(x[0])).slice(0, 4);
+  const inMain = main.some(x => x[0] === S.view);
+  $('#mnav').innerHTML = main.map(([k, l]) => `<a href="#${k}" class="${S.view === k ? 'active' : ''}"><svg viewBox="0 0 24 24">${ICONS[k]}</svg>${l.split(' ')[0]}</a>`).join('') +
+    `<a href="#more" data-more="1" class="${inMain ? '' : 'active'}"><svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="1.8" fill="currentColor"/><circle cx="12" cy="12" r="1.8" fill="currentColor"/><circle cx="19" cy="12" r="1.8" fill="currentColor"/></svg>More</a>`;
+  $('#mnav').querySelector('[data-more]').onclick = e => { e.preventDefault(); moreMenu(main.map(x => x[0])); };
   const role = S.isAdmin ? 'Admin' : (S.canWrite ? 'Member' : 'Viewer');
   $('#whoami').innerHTML = S.meUser ? `<b>${esc(S.meUser.name)}</b><span class="sub">@${esc(S.meUser.username)}${S.meUser.relationship ? ' · ' + esc(S.meUser.relationship) : ''}</span><br><span class="role">${role}</span> <button class="btn small ghost" data-act="logout" style="margin-left:4px">Log out</button>` : '';
   $('#whoami').querySelector('[data-act=logout]')?.addEventListener('click', ACTIONS.logout);
 }
 
+function moreMenu(skip) {
+  const rest = views().filter(x => !skip.includes(x[0]));
+  openModal(`<h2>More</h2><div>${rest.map(([k, l]) => `<a class="more-item" href="#${k}" data-close="1"><svg viewBox="0 0 24 24">${ICONS[k]}</svg>${l}</a>`).join('')}
+    <a class="more-item" href="#" data-logout="1"><svg viewBox="0 0 24 24"><path d="M10 4H5v16h5M15 8l4 4-4 4M19 12H9" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>Log out</a></div>
+    <div class="actions"><button class="btn" data-x="no">Close</button></div>`, m => {
+    m.querySelector('[data-x=no]').onclick = closeModal;
+    m.querySelectorAll('[data-close]').forEach(a => a.addEventListener('click', () => closeModal()));
+    m.querySelector('[data-logout]').onclick = e => { e.preventDefault(); ACTIONS.logout(); };
+  });
+}
 let renderQueued = false;
 function render() { if (renderQueued) return; renderQueued = true; requestAnimationFrame(() => { renderQueued = false; doRender(); }); }
 function doRender() {
@@ -440,7 +547,8 @@ function doRender() {
   el.innerHTML = (S.stale ? `<div class="notice warn">Can't reach the server right now — what you see may be out of date. ${esc(S.loadError)}</div>` : '') +
     (S.meUser?.mustChangePassword && S.view !== 'account' ? `<div class="notice warn">Please <a href="#account">set your own password</a> — you're still using the one the admin gave you.</div>` : '') +
     (!S.canWrite ? `<div class="notice">You have view-only access to the household expenses. Ask the admin to make you a <b>Member</b> to add your own.</div>` : '') +
-    fn();
+    fn() +
+    (S.canWrite && ['dashboard', 'transactions', 'family', 'budgets'].includes(S.view) ? `<button class="fab" data-act="add" aria-label="Add entry">+</button>` : '');
   bindCommon();
   if (keepFocus) { const f = document.getElementById(keepFocus); if (f) { f.focus(); try { if (caret != null) f.setSelectionRange(caret, caret); } catch (e) {} } }
   scrollTo(0, sx);
@@ -530,11 +638,12 @@ document.addEventListener('scroll', e => {
 
 /* ============ shared UI pieces ============ */
 function scopeOptions(includeAll = true) {
-  if (!S.canWrite) { S.f.scope = HH; return `<option value="${HH}" selected>Household (shared)</option>`; }
-  const o = [['me', 'My expenses'], [HH, 'Household (shared)']];
+  if (!S.canWrite) { S.f.scope = HH; return `<option value="${HH}" selected>Household (all shared items)</option>`; }
+  const o = [['me', 'My expenses (incl. my household share)'], [HH, 'Household (all shared items)']];
   if (S.isAdmin && includeAll) {
-    o.push(['all', 'Everyone (all members + household)']);
+    o.unshift(['all', 'Everyone (all members + household)']);
     for (const id in S.members) if (id !== S.me) o.push([id, nameOf(id) + (S.members[id].active === false ? ' (disabled)' : '')]);
+    o.push([SHARED, 'Shared household pool (not from one salary)']);
   }
   return o.map(([v, l]) => `<option value="${esc(v)}" ${S.f.scope === v ? 'selected' : ''}>${esc(l)}</option>`).join('');
 }
@@ -552,6 +661,8 @@ function bindCommon() {
   });
   document.querySelectorAll('[data-act]').forEach(el => el.addEventListener('click', e => ACTIONS[el.dataset.act]?.(el, e)));
   if (S.view === 'settings') document.querySelectorAll('#main input, #main textarea').forEach(el => el.addEventListener('input', () => { S.dirty = true; }));
+  document.querySelectorAll('[data-fam]').forEach(cb => cb.addEventListener('change', () => famChange(cb.dataset.fam, cb.checked)));
+  document.querySelectorAll('[data-fam-only]').forEach(b => b.addEventListener('click', e => { e.preventDefault(); e.stopPropagation(); S.f.fam = [b.dataset.famOnly]; S.famOpen = true; render(); }));
   document.querySelectorAll('details[data-mp]').forEach(d => d.addEventListener('toggle', () => { S.mpOpen[d.dataset.mp] = d.open; }));
   document.querySelectorAll('[data-tip]').forEach(el => {
     el.addEventListener('mousemove', e => showTip(e, el.dataset.tip));
@@ -617,6 +728,11 @@ function statusBadge(spent, budget) {
 }
 
 /* ============ views ============ */
+function scopeNote(scope) {
+  const t = scope === HH ? 'Every shared household item, whoever paid for it.' : scope === 'all' ? 'Every member plus the household, each entry counted once.' : scope === SHARED ? 'Household items not taken from any one person’s salary.'
+    : 'Their own entries plus the household expenses taken from their salary.';
+  return `<div class="hint" style="margin-top:2px">${t}</div>`;
+}
 function viewDashboard() {
   const scope = S.f.scope; const r = periodRange(S.f.period);
   const all = scopeItems(scope);
@@ -636,13 +752,14 @@ function viewDashboard() {
   const recent = [...items].sort((a, b) => b.date.localeCompare(a.date) || (b.created || 0) - (a.created || 0)).slice(0, 8);
   let memberCard = '';
   if (scope === 'all') {
-    const byOwner = groupBy(exp, 'owner');
-    const rows = Object.entries(byOwner).sort((a, b) => b[1] - a[1]).map(([k, v]) => ({ label: nameOf(k), color: 'var(--accent)', value: v }));
-    memberCard = `<div class="card"><h2>Spending by person</h2>${barList(rows, { total: spent })}</div>`;
+    const byPayer = groupBy(exp, payerOf);   // a household item counts for whoever's salary it comes from
+    const rows = Object.entries(byPayer).sort((a, b) => b[1] - a[1]).map(([k, v]) => ({ label: nameOf(k), color: 'var(--accent)', value: v }));
+    memberCard = `<div class="card"><h2>Spending by person <span class="sub" style="font-weight:400">· incl. household share</span></h2>${barList(rows, { total: spent })}</div>`;
   }
-  const totalBudgetLine = isMonth && bud.total ? `<div class="meta">${statusBadge(spent, bud.total)}</div>` : `<div class="meta">${pSpent ? 'Prev. period ' + money(pSpent) : '&nbsp;'}</div>`;
+  const hhShare = scope === HH || scope === 'all' ? 0 : sum(items.filter(i => i.owner === HH));
+  const totalBudgetLine = isMonth && bud.total ? `<div class="meta">${statusBadge(spent, bud.total)}</div>` : hhShare ? `<div class="meta">incl. ${money(hhShare)} household share</div>` : `<div class="meta">${pSpent ? 'Prev. period ' + money(pSpent) : '&nbsp;'}</div>`;
   return `
-  <div class="top"><div><h1>Dashboard</h1><div class="sub">${esc(scopeLabel(scope))} · ${rangeLabel(r)}</div></div>${addBtn()}</div>
+  <div class="top"><div><h1>Dashboard</h1><div class="sub">${esc(scopeLabel(scope))} · ${rangeLabel(r)}</div>${scopeNote(scope)}</div>${addBtn()}</div>
   <div class="filters"><select data-f="scope" aria-label="Whose expenses">${scopeOptions()}</select>${periodControls()}</div>
   <div class="grid tiles" style="margin-bottom:14px">
     <div class="card tile"><div class="lbl">Total spent</div><div class="val">${money(spent)}</div>${totalBudgetLine}</div>
@@ -652,8 +769,8 @@ function viewDashboard() {
     <div class="card tile"><div class="lbl">vs previous period</div><div class="val ${change > 0 ? 'up' : change < 0 ? 'down' : ''}">${change === null ? '—' : (change > 0 ? '▲ ' : change < 0 ? '▼ ' : '') + Math.abs(change) + '%'}</div><div class="meta">${change === null ? 'No earlier data' : (change > 0 ? 'Spending more' : change < 0 ? 'Spending less' : 'Same') + ' · avg ' + money(spent / days, true) + '/day'}</div></div>
   </div>
   <div class="grid two" style="margin-bottom:14px">
-    <div class="card"><h2>Monthly calculation · ${esc(rangeLabel(r))}</h2>${calcStatement(items, income, spent, saved, left)}</div>
-    <div class="card"><h2>Fixed monthly commitments</h2>${commitmentsCard(scope)}</div>
+    <div class="card"><h2>Monthly calculation · ${esc(rangeLabel(r))}</h2>${calcStatement(items, income, spent, saved, left, scope)}</div>
+    <div class="card">${commitmentsCard(scope)}</div>
   </div>
   <div class="grid two" style="margin-bottom:14px">
     <div class="card"><h2>Spending by category${isMonth && Object.keys(bud.budgets).length ? ' <span class="sub" style="font-weight:400">· black line = budget</span>' : ''}</h2>${barList(catRows, { total: spent })}</div>
@@ -665,15 +782,19 @@ function viewDashboard() {
   </div>`;
 }
 
-function calcStatement(items, income, spent, saved, left) {
+function calcStatement(items, income, spent, saved, left, scope) {
   if (!items.length) return `<div class="empty">No entries in this period.</div>`;
   const exp = items.filter(i => typeOf(i) === 'expense');
   const emi = exp.filter(i => i.cat === 'emi').reduce((a, b) => a + b.amount, 0);
+  const hhExp = exp.filter(i => i.owner === HH).reduce((a, b) => a + b.amount, 0);
   const savBy = groupBy(items.filter(i => typeOf(i) === 'saving'), 'cat');
   const row = (label, val, opts = {}) => `<tr><td style="${opts.indent ? 'padding-left:26px;color:var(--ink-2)' : ''}${opts.bold ? 'font-weight:700' : ''}">${label}</td><td class="num" style="${opts.bold ? 'font-weight:700;font-size:15px;' : ''}${opts.color ? 'color:' + opts.color : ''}">${val}</td></tr>`;
+  const split = hhExp > 0 && scope !== HH;      // person view: show how much of the spending is their household share
   return `<table><tbody>
     ${row('<span class="pill"><span class="dot" style="background:var(--good)"></span>Income</span>', money(income), { bold: true })}
     ${row('<span class="pill"><span class="dot" style="background:var(--crit)"></span>− Expenses</span>', money(spent), { bold: true })}
+    ${split ? row('personal spending', money(spent - hhExp), { indent: true }) : ''}
+    ${split ? row(scope === 'all' ? 'household expenses' : 'household share (taken from this salary)', money(hhExp), { indent: true }) : ''}
     ${emi ? row('of which EMI & loans', money(emi), { indent: true }) : ''}
     ${row('<span class="pill"><span class="dot" style="background:' + SAVE_COLOR + '"></span>− Savings & investments</span>', money(saved), { bold: true })}
     ${Object.entries(savBy).sort((a, b) => b[1] - a[1]).map(([k, v]) => row(esc(k), money(v), { indent: true })).join('')}
@@ -681,25 +802,37 @@ function calcStatement(items, income, spent, saved, left) {
     ${row('= Balance left', money(left), { bold: true, color: left < 0 ? 'var(--crit)' : 'var(--good-ink)' })}
   </tbody></table>${left < 0 && income ? `<p class="status over" style="margin:10px 0 0">▲ You've spent and saved ${money(-left)} more than your income this period.</p>` : ''}`;
 }
-// Which recurring rules belong to a scope: 'me' / a member id (their personal rules), HH (shared household rules) or 'all'.
+// Whose salary a recurring rule is taken from: its owner, or (household rules) the member chosen when it was set up.
+function debitOfRule(r) { return r.target === HH ? (r.debitFrom || r.owner) : r.owner; }
+// Which recurring rules count for a scope: 'me' / a member id (their own rules + household rules taken from their salary),
+// HH (all shared household rules), 'shared' (household rules paid from the pool) or 'all'.
 function rulesForScope(scope) {
   return Object.entries(S.recurring).filter(([, r]) => {
     if (!r || r.deleted) return false;
     if (scope === 'all') return true;
     if (scope === HH) return r.target === HH;
-    return r.owner === (scope === 'me' ? S.me : scope) && r.target !== HH;
+    return debitOfRule(r) === (scope === 'me' ? S.me : scope);
   });
 }
+function canEditRule(r) { return S.canWrite && (S.isAdmin || r.owner === S.me); }
 function commitmentsCard(scope = 'me') {
-  const rules = rulesForScope(scope).filter(([, r]) => !r.paused && typeOf(r) !== 'income').map(([id, r]) => [id, r, ruleProgress(id, r)]).filter(([, , p]) => !p.done);
-  if (!rules.length) return scope === 'me' ? `<div class="empty">Add your EMI, SIP, RD, chit or rent in <a href="#recurring">EMI & savings</a> and they'll be added every month automatically.</div>` : `<div class="empty">No fixed monthly commitments set up yet.</div>`;
-  const emi = rules.filter(([, r]) => typeOf(r) === 'expense').reduce((a, [, r]) => a + r.amount, 0);
-  const sav = rules.filter(([, r]) => typeOf(r) === 'saving').reduce((a, [, r]) => a + r.amount, 0);
-  return `<div style="display:flex;gap:20px;flex-wrap:wrap;margin-bottom:12px">
-      <div><div class="sub">Every month</div><div style="font-size:20px;font-weight:700">${money(emi + sav)}</div></div>
+  const all = rulesForScope(scope).map(([id, r]) => [id, r, ruleProgress(id, r)]);
+  const live = all.filter(([, r, p]) => !r.paused && !p.done);
+  const sumOf = t => live.filter(([, r]) => typeOf(r) === t).reduce((a, [, r]) => a + r.amount, 0);
+  const emi = sumOf('expense'), sav = sumOf('saving');
+  const forPerson = scope === HH || scope === SHARED ? S.me : (scope === 'all' || scope === 'me' ? S.me : scope);
+  const add = S.canWrite ? `<button class="btn small" data-act="addrec" data-who="${esc(forPerson)}" data-target="${scope === HH || scope === SHARED ? HH : 'me'}" data-debit="${scope === SHARED ? SHARED : ''}">+ Add</button>` : '';
+  const head = `<div style="display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:12px"><h2 style="margin:0">Fixed monthly commitments</h2>${add}</div>`;
+  if (!all.length) return head + (scope === 'me' && S.canWrite ? `<div class="empty">Add your EMI, SIP, RD, chit or rent with “+ Add” and they'll be added every month automatically.</div>` : `<div class="empty">No fixed monthly commitments set up yet.</div>`);
+  const who = r => r.target === HH ? 'household · ' + (debitOfRule(r) === SHARED ? 'shared pool' : debitOfRule(r) === S.me ? 'from your salary' : 'from ' + rawName(debitOfRule(r)) + "'s salary") : (scope === 'all' || scope === HH ? rawName(r.owner) : '');
+  return head + `<div style="display:flex;gap:20px;flex-wrap:wrap;margin-bottom:12px">
+      <div><div class="sub">Every month</div><div style="font-size:20px;font-weight:700" data-t="commit-total">${money(emi + sav)}</div></div>
       <div><div class="sub">Expenses / EMI</div><div style="font-size:16px;font-weight:600">${money(emi)}</div></div>
       <div><div class="sub">Savings</div><div style="font-size:16px;font-weight:600">${money(sav)}</div></div></div>
-    <table><tbody>${rules.map(([id, r, p]) => `<tr><td><span class="pill"><span class="dot" style="background:${entryColor(r)}"></span>${esc(r.note || entryLabel(r))}</span><div class="sub">${p.n ? `${p.paid} of ${p.n} paid · ends ${ymLabel(p.endYm)}` : `${p.paid} paid so far · no end date`}</div>${p.n ? `<div class="track" style="height:6px;margin-top:5px;max-width:220px"><div class="fill" style="width:${Math.min(100, p.paid / p.n * 100)}%;background:${entryColor(r)}"></div></div>` : ''}</td><td class="num" style="font-weight:600">${money(r.amount)}<div class="sub" style="font-weight:400">day ${esc(r.day)}</div></td></tr>`).join('')}</tbody></table>`;
+    <div class="tablewrap"><table class="stack"><tbody>${all.map(([id, r, p]) => `<tr data-rule="${esc(id)}" style="${r.paused || p.done ? 'opacity:.6' : ''}"><td class="first"><span class="pill"><span class="dot" style="background:${entryColor(r)}"></span>${esc(r.note || entryLabel(r))}</span>${r.paused ? ' <span class="tag">paused</span>' : ''}${p.done ? ' <span class="tag">completed</span>' : ''}${typeOf(r) === 'income' ? ' <span class="tag">income</span>' : ''}
+        <div class="sub">${esc(who(r))}${who(r) ? ' · ' : ''}${p.n ? `${p.paid} of ${p.n} paid · ends ${ymLabel(p.endYm)}` : `${p.paid} paid so far · no end date`}</div>${p.n ? `<div class="track" style="height:6px;margin-top:5px;max-width:220px"><div class="fill" style="width:${Math.min(100, p.paid / p.n * 100)}%;background:${entryColor(r)}"></div></div>` : ''}</td>
+      <td class="num" data-label="Per month" style="font-weight:600">${money(r.amount)}<div class="sub" style="font-weight:400">day ${esc(r.day)}</div></td>
+      <td class="num acts" style="white-space:nowrap">${canEditRule(r) ? `<button class="btn small ghost" data-act="editrec" data-id="${esc(id)}">Edit</button><button class="btn small ghost" data-act="pauserec" data-id="${esc(id)}">${r.paused ? 'Resume' : 'Pause'}</button>` : ''}</td></tr>`).join('')}</tbody></table></div>`;
 }
 function filteredTx() {
   const r = periodRange(S.f.period);
@@ -712,21 +845,32 @@ function filteredTx() {
   ).sort((a, b) => b.date.localeCompare(a.date) || (b.created || 0) - (a.created || 0));
 }
 function canEditItem(i) { return S.canWrite && (i.owner === S.me || i.owner === HH || S.isAdmin); }
+// Household entries: who spent it and whose salary it comes out of (or goes into, for income).
+function payInfo(i) {
+  if (i.owner !== HH) return '';
+  const nm = id => id === S.me ? 'you' : rawName(id);
+  const by = i.spentBy ? nm(i.spentBy) : 'someone';
+  const d = i.debitFrom || SHARED;
+  const target = d === SHARED ? 'the shared pool' : (d === S.me ? 'your' : rawName(d) + "'s") + (typeOf(i) === 'income' ? ' income' : ' salary');
+  return typeOf(i) === 'income' ? `added by ${by} · credited to ${target}` : `spent by ${by} · from ${target}`;
+}
+function whoCell(i) {
+  if (i.owner === HH) return `<b>Household</b><div class="sub">${esc(payInfo(i))}</div>`;
+  return esc(nameOf(i.owner)) + (i.by && i.by !== i.owner ? `<div class="sub">added by ${esc(i.by === S.me ? 'you' : rawName(i.by))}</div>` : '');
+}
 function txTable(items, compact) {
   if (!items.length) return `<div class="empty">No entries yet${S.canWrite ? ' — tap “Add entry” to record your first one.' : '.'}</div>`;
-  const showWho = S.f.scope === 'all' || S.f.scope === HH;
-  return `<div class="tablewrap"><table><thead><tr><th>Date</th><th>Category</th>${compact ? '' : '<th class="hide-sm">Note</th><th class="hide-sm">Mode</th>'}${showWho && !compact ? '<th class="hide-sm">Who</th>' : ''}<th class="num">Amount</th>${compact ? '' : '<th></th>'}</tr></thead><tbody>
+  return `<div class="tablewrap"><table class="${compact ? '' : 'stack'}"><thead><tr><th>Date</th><th>Category</th>${compact ? '' : '<th class="hide-sm">Note</th><th class="hide-sm">Mode</th><th class="hide-sm">Whose</th>'}<th class="num">Amount</th>${compact ? '' : '<th></th>'}</tr></thead><tbody>
   ${items.map(i => {
     const inc = i.type === 'income'; const sav = i.type === 'saving';
     const label = entryLabel(i);
     const tags = (i.tags || []).map(t => `<span class="tag">#${esc(t)}</span>`).join('');
-    return `<tr>
-      <td style="white-space:nowrap">${fmtDate(i.date)}</td>
-      <td><span class="pill"><span class="dot" style="background:${esc(entryColor(i))}"></span>${esc(label)}${sav ? ' <span class="tag">savings</span>' : ''}${i.sub ? ' <span class="sub">· ' + esc(i.sub) + '</span>' : ''}</span>${compact && i.note ? `<div class="sub">${esc(i.note)}</div>` : ''}</td>
-      ${compact ? '' : `<td class="hide-sm">${esc(i.note)} ${tags}${i.recurring ? ' <span class="tag">↻ recurring</span>' : ''}</td><td class="hide-sm">${esc(i.mode)}</td>`}
-      ${showWho && !compact ? `<td class="hide-sm">${esc(i.owner === HH ? 'Household' + (i.by ? ' · ' + rawName(i.by) : '') : nameOf(i.owner))}</td>` : ''}
-      <td class="num" style="font-weight:600;${inc ? 'color:var(--good-ink)' : ''}">${inc ? '+' : ''}${money(i.amount)}</td>
-      ${compact ? '' : `<td class="num">${canEditItem(i) ? `<button class="btn small ghost" data-act="edit" data-id="${esc(i.id)}" data-owner="${esc(i.owner)}">Edit</button><button class="btn small ghost danger" data-act="del" data-id="${esc(i.id)}" data-owner="${esc(i.owner)}">Delete</button>` : ''}</td>`}
+    return `<tr data-entry="${esc(i.id)}">
+      <td class="c-date" data-label="Date" style="white-space:nowrap">${fmtDate(i.date)}</td>
+      <td class="first c-cat"><span class="pill"><span class="dot" style="background:${esc(entryColor(i))}"></span>${esc(label)}${sav ? ' <span class="tag">savings</span>' : ''}${i.owner === HH ? ' <span class="tag">household</span>' : ''}${i.sub ? ' <span class="sub">· ' + esc(i.sub) + '</span>' : ''}</span>${compact && i.note ? `<div class="sub">${esc(i.note)}</div>` : ''}</td>
+      ${compact ? '' : `<td class="hide-sm c-note" data-label="Note">${esc(i.note)} ${tags}${i.recurring ? ' <span class="tag">↻ recurring</span>' : ''}</td><td class="hide-sm c-mode" data-label="Payment mode">${esc(i.mode)}</td><td class="hide-sm c-who" data-label="Whose">${whoCell(i)}</td>`}
+      <td class="num c-amt" data-label="Amount" style="font-weight:600;${inc ? 'color:var(--good-ink)' : ''}">${inc ? '+' : ''}${money(i.amount)}</td>
+      ${compact ? '' : `<td class="num acts" style="white-space:nowrap">${canEditItem(i) ? `<button class="btn small ghost" data-act="edit" data-id="${esc(i.id)}" data-owner="${esc(i.owner)}">Edit</button><button class="btn small ghost danger" data-act="del" data-id="${esc(i.id)}" data-owner="${esc(i.owner)}">Delete</button>` : ''}</td>`}
     </tr>`; }).join('')}
   </tbody></table></div>`;
 }
@@ -748,35 +892,37 @@ function viewTransactions() {
   <div class="card" style="padding:6px 8px">${txTable(items, false)}</div>`;
 }
 
+// What counts for one person: their own entries plus the household entries taken from their salary.
 function personStats(id, r) {
-  const items = allItems(id).filter(i => inRange(i, r));
+  const items = personItems(id).filter(i => inRange(i, r));
   const spent = sum(items), income = sum(items, 'income'), saved = sum(items, 'saving');
+  const hhSpent = sum(items.filter(i => i.owner === HH));
   const commit = rulesForScope(id).map(([rid, rule]) => [rid, rule, ruleProgress(rid, rule)]).filter(([, rule, p]) => !rule.paused && !p.done && typeOf(rule) !== 'income').reduce((a, [, rule]) => a + rule.amount, 0);
-  return { items, spent, income, saved, left: income - spent - saved, commit };
+  return { items, spent, income, saved, left: income - spent - saved, hhSpent, ownSpent: spent - hhSpent, commit };
 }
 function memberPanel(id, r, st) {
-  const isHH = id === HH, u = S.members[id];
+  const isPool = id === SHARED, u = S.members[id];
   const isMonth = S.f.period === 'this' || S.f.period === 'last';
   const exp = st.items.filter(i => typeOf(i) === 'expense');
   const catRows = Object.entries(groupBy(exp, 'cat')).sort((a, b) => b[1] - a[1]).map(([k, v]) => { const c = catById(k); return { label: c.name, color: c.color, value: v }; });
   const bud = budgetFor(id);
   const recent = [...st.items].sort((a, b) => b.date.localeCompare(a.date) || (b.created || 0) - (a.created || 0)).slice(0, 6);
-  const initial = (isHH ? 'H' : (rawName(id)[0] || '?')).toUpperCase();
+  const initial = (isPool ? 'H' : (rawName(id)[0] || '?')).toUpperCase();
   const open = S.mpOpen[id] !== false;
-  const stat = (l, v, cls) => `<div class="mstat"><div class="lbl">${l}</div><div class="val ${cls || ''}">${v}</div></div>`;
+  const stat = (l, v, cls, note) => `<div class="mstat"><div class="lbl">${l}</div><div class="val ${cls || ''}">${v}</div>${note ? `<div class="hint">${note}</div>` : ''}</div>`;
   return `<details class="mp" id="mp-${esc(id)}" data-mp="${esc(id)}" ${open ? 'open' : ''}>
     <summary><svg class="chev" viewBox="0 0 24 24"><path d="M9 6l6 6-6 6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
       <div class="avatar">${esc(initial)}</div>
-      <div><div style="font-weight:700;font-size:15px">${isHH ? 'Household (shared)' : esc(rawName(id))}${id === S.me ? ' <span class="sub">(you)</span>' : ''}</div>
-        <div class="sub">${isHH ? 'Rent, groceries, bills and other shared family costs' : `${esc(u?.relationship || 'Relationship not set')} · ${roleLabel(u?.role)}`}</div></div>
+      <div><div style="font-weight:700;font-size:15px">${isPool ? 'Shared household pool' : esc(rawName(id))}${id === S.me ? ' <span class="sub">(you)</span>' : ''}</div>
+        <div class="sub">${isPool ? 'Household items that are not taken from any one person’s salary' : `${esc(u?.relationship || 'Relationship not set')} · ${roleLabel(u?.role)}${u?.active === false ? ' · disabled' : ''}`}</div></div>
       <div class="mp-sum"><span>Spent <b>${money(st.spent)}</b></span><span>Saved <b>${money(st.saved)}</b></span><span>Balance <b style="${st.left < 0 ? 'color:var(--crit)' : ''}">${money(st.left)}</b></span></div></summary>
     <div class="mp-body">
-      <div class="mp-head">${!isHH && u ? `<span class="tag">@${esc(u.username)}</span><span class="tag">${u.lastLogin ? 'Last login ' + fmtDate(isoDate(new Date(u.lastLogin))) : 'Never logged in'}</span>` : ''}${isMonth && bud.total ? statusBadge(st.spent, bud.total) : ''}
-        <span style="margin-left:auto;display:flex;gap:6px"><button class="btn small" data-act="openperson" data-id="${esc(id)}" data-to="dashboard">Full dashboard</button><button class="btn small" data-act="openperson" data-id="${esc(id)}" data-to="transactions">All transactions</button></span></div>
-      <div class="mstats">${stat('Income', money(st.income))}${stat('Spent', money(st.spent))}${stat('Saved & invested', money(st.saved))}${stat('Balance left', money(st.left), st.left < 0 ? 'up' : '')}${stat('Fixed / month', money(st.commit))}</div>
+      <div class="mp-head">${!isPool && u ? `<span class="tag">@${esc(u.username)}</span><span class="tag">${u.lastLogin ? 'Last login ' + fmtDate(isoDate(new Date(u.lastLogin))) : 'Never logged in'}</span>` : ''}${isMonth && bud.total ? statusBadge(st.spent, bud.total) : ''}
+        <span style="margin-left:auto;display:flex;gap:6px;flex-wrap:wrap"><button class="btn small" data-act="openperson" data-id="${esc(id)}" data-to="dashboard">Full dashboard</button><button class="btn small" data-act="openperson" data-id="${esc(id)}" data-to="transactions">All transactions</button></span></div>
+      <div class="mstats">${stat('Income', money(st.income))}${stat('Spent', money(st.spent), '', st.hhSpent ? 'own ' + money(st.ownSpent) + ' + household ' + money(st.hhSpent) : '')}${stat('Saved & invested', money(st.saved))}${stat('Balance left', money(st.left), st.left < 0 ? 'up' : '')}${stat('Fixed / month', money(st.commit))}</div>
       <div class="grid two" style="margin-bottom:14px">
-        <div class="card"><h2>Monthly calculation</h2>${calcStatement(st.items, st.income, st.spent, st.saved, st.left)}</div>
-        <div class="card"><h2>Fixed monthly commitments</h2>${commitmentsCard(id)}</div>
+        <div class="card"><h2>Monthly calculation</h2>${calcStatement(st.items, st.income, st.spent, st.saved, st.left, id)}</div>
+        <div class="card">${commitmentsCard(id)}</div>
       </div>
       <div class="grid two">
         <div class="card"><h2>Spending by category</h2>${barList(catRows, { total: st.spent })}</div>
@@ -784,40 +930,81 @@ function memberPanel(id, r, st) {
       </div>
     </div></details>`;
 }
+// The rows of the family table: every member (you first) plus the shared household pool.
+function famRowIds() {
+  const members = [S.me, ...Object.keys(S.members).filter(i => i !== S.me && (S.members[i].active !== false || S.entries.some(e => payerOf(e) === i)))];
+  return [...members, SHARED];
+}
+function famSelection(rows) {
+  const chosen = rows.filter(id => (S.f.fam || []).includes(id));
+  return chosen.length && chosen.length < rows.length ? chosen : rows;
+}
+function famLabel(rows, sel) {
+  if (sel.length === rows.length) return 'All family members';
+  if (sel.length <= 2) return sel.map(rawName).join(' + ');
+  return sel.length + ' of ' + rows.length + ' selected';
+}
+function famSelector(rows, sel) {
+  const isAll = sel.length === rows.length;
+  const row = (id) => `<label class="msel-row"><input type="checkbox" data-fam="${esc(id)}" ${sel.includes(id) ? 'checked' : ''}><span>${id === SHARED ? 'Shared household pool' : esc(nameOf(id))}${id !== SHARED && S.members[id]?.active === false ? ' <span class="hint">(disabled)</span>' : ''}</span><button type="button" class="only" data-fam-only="${esc(id)}">only</button></label>`;
+  return `<div class="msel"><button type="button" class="btn msel-btn" data-act="famtoggle" aria-haspopup="true" aria-expanded="${S.famOpen}" id="fam-btn"><svg viewBox="0 0 24 24">${ICONS.family}</svg><span>${esc(famLabel(rows, sel))}</span><span aria-hidden="true">▾</span></button>
+    ${S.famOpen ? `<div class="msel-pop" role="group" aria-label="Choose family members">
+      <label class="msel-row"><input type="checkbox" data-fam="__all" ${isAll ? 'checked' : ''}><span><b>All family members</b></span></label><div class="msel-sep"></div>
+      ${rows.map(row).join('')}
+      <div class="msel-foot"><span class="hint" style="align-self:center">Tick one or several</span><button type="button" class="btn small primary" data-act="famdone">Done</button></div></div>` : ''}</div>`;
+}
+function famChange(id, checked) {
+  const rows = famRowIds();
+  let cur;
+  if (id === '__all') cur = new Set(rows);
+  else { cur = new Set(famSelection(rows)); checked ? cur.add(id) : cur.delete(id); if (!cur.size) cur = new Set(rows); }   // never leave nobody selected
+  S.f.fam = cur.size === rows.length ? [] : [...cur];
+  S.famOpen = true; render();
+}
 function viewFamily() {
   if (!S.isAdmin) return `<div class="empty">Only the admin can see the family view.</div>`;
   const r = periodRange(S.f.period);
-  const people = [S.me, ...Object.keys(S.members).filter(i => i !== S.me && S.members[i].active !== false), HH];
-  const st = {}; people.forEach(id => { st[id] = personStats(id, r); });
-  const T = people.reduce((a, id) => ({ spent: a.spent + st[id].spent, income: a.income + st[id].income, saved: a.saved + st[id].saved, commit: a.commit + st[id].commit }), { spent: 0, income: 0, saved: 0, commit: 0 });
+  const rows = famRowIds(), sel = famSelection(rows), isAll = sel.length === rows.length;
+  const st = {}; rows.forEach(id => { st[id] = personStats(id, r); });
+  // Every entry belongs to exactly one row (its owner, or for household items the member/pool it is debited from), so totals never double count.
+  const T = sel.reduce((a, id) => ({ spent: a.spent + st[id].spent, income: a.income + st[id].income, saved: a.saved + st[id].saved, commit: a.commit + st[id].commit }), { spent: 0, income: 0, saved: 0, commit: 0 });
   const left = T.income - T.spent - T.saved;
-  const nMembers = people.length - 1;
-  const bars = key => barList(people.filter(id => st[id][key] > 0).sort((a, b) => st[b][key] - st[a][key]).map(id => ({ label: id === HH ? 'Household' : nameOf(id), color: 'var(--accent)', value: st[id][key] })), { total: T[key] });
+  const people = sel.filter(id => id !== SHARED).length;
+  const pre = isAll ? 'Family' : 'Selected';
+  const bars = key => barList(sel.filter(id => st[id][key] > 0).sort((a, b) => st[b][key] - st[a][key]).map(id => ({ label: id === SHARED ? 'Shared pool' : nameOf(id), color: 'var(--accent)', value: st[id][key] })), { total: T[key] });
+  // Household breakdown: who actually spent vs whose salary it came out of.
+  const hhExp = allItems(HH).filter(i => inRange(i, r) && typeOf(i) === 'expense');
+  const hhTotal = hhExp.reduce((a, i) => a + i.amount, 0);
+  const hhRows = fn => Object.entries(groupBy(hhExp, fn)).sort((a, b) => b[1] - a[1]).map(([k, v]) => ({ label: k === SHARED ? 'Shared pool' : k === 'unknown' ? 'Not recorded' : nameOf(k), color: 'var(--accent)', value: v }));
+  const hhCard = (isAll || sel.includes(SHARED)) && hhExp.length ? `<div class="card" style="margin-bottom:14px"><h2>Household expenses · ${money(hhTotal)}</h2><div class="grid two">
+      <div><div class="sub" style="margin-bottom:8px">Taken from whose salary</div>${barList(hhRows(i => payerOf(i)), { total: hhTotal })}</div>
+      <div><div class="sub" style="margin-bottom:8px">Who spent it</div>${barList(hhRows(i => i.spentBy || 'unknown'), { total: hhTotal })}</div></div></div>` : '';
   return `
-  <div class="top"><div><h1>Family view</h1><div class="sub">Every member's full details · ${rangeLabel(r)}</div></div>${addBtn()}</div>
-  <div class="filters">${periodControls()}</div>
+  <div class="top"><div><h1>Family view</h1><div class="sub">${esc(famLabel(rows, sel))} · ${rangeLabel(r)}</div></div>${addBtn()}</div>
+  <div class="filters">${famSelector(rows, sel)}${periodControls()}</div>
   <div class="grid tiles" style="margin-bottom:14px">
-    <div class="card tile"><div class="lbl">Family income</div><div class="val">${money(T.income)}</div><div class="meta">${nMembers} member${nMembers === 1 ? '' : 's'} + household</div></div>
-    <div class="card tile"><div class="lbl">Family spent</div><div class="val">${money(T.spent)}</div><div class="meta">all members + household</div></div>
-    <div class="card tile"><div class="lbl">Saved & invested</div><div class="val">${money(T.saved)}</div><div class="meta">${T.income && T.saved ? Math.round(T.saved / T.income * 100) + '% of income' : 'SIP, RD, chit…'}</div></div>
-    <div class="card tile"><div class="lbl">Balance left</div><div class="val ${left < 0 ? 'up' : ''}">${money(left)}</div><div class="meta">income − spent − saved</div></div>
+    <div class="card tile"><div class="lbl">${pre} income</div><div class="val" data-t="fam-income">${money(T.income)}</div><div class="meta">${people} member${people === 1 ? '' : 's'}${sel.includes(SHARED) ? ' + shared pool' : ''}</div></div>
+    <div class="card tile"><div class="lbl">${pre} spent</div><div class="val" data-t="fam-spent">${money(T.spent)}</div><div class="meta">own + household share</div></div>
+    <div class="card tile"><div class="lbl">Saved & invested</div><div class="val" data-t="fam-saved">${money(T.saved)}</div><div class="meta">${T.income && T.saved ? Math.round(T.saved / T.income * 100) + '% of income' : 'SIP, RD, chit…'}</div></div>
+    <div class="card tile"><div class="lbl">Balance left</div><div class="val ${left < 0 ? 'up' : ''}" data-t="fam-left">${money(left)}</div><div class="meta">income − spent − saved</div></div>
     <div class="card tile"><div class="lbl">Fixed every month</div><div class="val">${money(T.commit)}</div><div class="meta">EMI, bills & other expense rules</div></div>
   </div>
-  <div class="card" style="padding:6px 8px;margin-bottom:14px"><div class="tablewrap"><table><thead><tr><th>Person</th><th class="hide-sm">Relationship</th><th class="num">Income</th><th class="num">Spent</th><th class="num">Saved</th><th class="num">Balance left</th><th class="num hide-sm">Fixed / month</th><th></th></tr></thead><tbody>
-    ${people.map(id => { const x = st[id], u = S.members[id]; return `<tr><td><b>${esc(rawName(id))}</b>${id === S.me ? ' <span class="sub">(you)</span>' : ''}<div class="sub">${x.items.length} ${x.items.length === 1 ? 'entry' : 'entries'}</div></td><td class="hide-sm">${id === HH ? 'Shared' : esc(u?.relationship || '—')}</td><td class="num">${money(x.income)}</td><td class="num" style="font-weight:600">${money(x.spent)}</td><td class="num">${money(x.saved)}</td><td class="num" style="font-weight:600;${x.left < 0 ? 'color:var(--crit)' : ''}">${money(x.left)}</td><td class="num hide-sm">${money(x.commit)}</td><td class="num"><button class="btn small" data-act="jump" data-id="${esc(id)}">Details ↓</button></td></tr>`; }).join('')}
-    <tr style="font-weight:700"><td>Family total</td><td class="hide-sm"></td><td class="num">${money(T.income)}</td><td class="num">${money(T.spent)}</td><td class="num">${money(T.saved)}</td><td class="num">${money(left)}</td><td class="num hide-sm">${money(T.commit)}</td><td></td></tr>
+  <div class="card" style="padding:6px 8px;margin-bottom:14px"><div class="tablewrap"><table id="fam-table" class="stack"><thead><tr><th>Person</th><th class="hide-sm">Relationship</th><th class="num">Income</th><th class="num">Spent</th><th class="num">Saved</th><th class="num">Balance left</th><th class="num hide-sm">Fixed / month</th><th></th></tr></thead><tbody>
+    ${sel.map(id => { const x = st[id], u = S.members[id], pool = id === SHARED; return `<tr data-person="${esc(id)}"><td class="first"><b>${pool ? 'Shared household pool' : esc(rawName(id))}</b>${id === S.me ? ' <span class="sub">(you)</span>' : ''}<div class="sub">${x.items.length} ${x.items.length === 1 ? 'entry' : 'entries'}${x.hhSpent && !pool ? ` · incl. household ${money(x.hhSpent)}` : ''}</div></td><td class="hide-sm" data-label="Relationship">${pool ? 'Not from one salary' : esc(u?.relationship || '—')}</td><td class="num" data-label="Income" data-c="income">${money(x.income)}</td><td class="num" data-label="Spent" style="font-weight:600" data-c="spent">${money(x.spent)}</td><td class="num" data-label="Saved" data-c="saved">${money(x.saved)}</td><td class="num" data-label="Balance left" style="font-weight:600;${x.left < 0 ? 'color:var(--crit)' : ''}" data-c="left">${money(x.left)}</td><td class="num hide-sm" data-label="Fixed / month">${money(x.commit)}</td><td class="num acts"><button class="btn small" data-act="jump" data-id="${esc(id)}">Details ↓</button></td></tr>`; }).join('')}
+    <tr style="font-weight:700" id="fam-total"><td class="first">${isAll ? 'Family total' : 'Selected total'}</td><td class="hide-sm"></td><td class="num" data-label="Income">${money(T.income)}</td><td class="num" data-label="Spent">${money(T.spent)}</td><td class="num" data-label="Saved">${money(T.saved)}</td><td class="num" data-label="Balance left">${money(left)}</td><td class="num hide-sm" data-label="Fixed / month">${money(T.commit)}</td><td class="acts"></td></tr>
   </tbody></table></div></div>
+  ${hhCard}
   <div class="grid two" style="margin-bottom:14px">
-    <div class="card"><h2>Who spent what</h2>${bars('spent')}</div>
+    <div class="card"><h2>Who spent what <span class="sub" style="font-weight:400">· incl. household share</span></h2>${bars('spent')}</div>
     <div class="card"><h2>Who saved what</h2>${bars('saved')}</div>
   </div>
   <h2 style="margin:6px 2px 10px">Member-wise details</h2>
-  ${people.map(id => memberPanel(id, r, st[id])).join('')}`;
+  ${sel.map(id => memberPanel(id, r, st[id])).join('')}`;
 }
 
 function viewBudgets() {
   const r = monthRange(0);
-  const monthItems = id => allItems(id).filter(i => inRange(i, r) && (i.type || 'expense') === 'expense');
+  const monthItems = id => (id === HH ? allItems(HH) : personItems(id)).filter(i => inRange(i, r) && (i.type || 'expense') === 'expense');   // a person's budget covers everything taken from their salary, incl. their household share
   const people = S.isAdmin ? [S.me, ...Object.keys(S.members).filter(i => i !== S.me && S.members[i].active !== false)] : (S.canWrite ? [S.me] : []);
   const block = (title, items, bud, editable, key) => {
     const byCat = groupBy(items, 'cat'); const spent = sum(items);
@@ -828,7 +1015,7 @@ function viewBudgets() {
       ${S.config.categories.filter(c => byCat[c.id] || +bud.budgets[c.id]).map(c => `<tr><td><span class="pill"><span class="dot" style="background:${esc(c.color)}"></span>${esc(c.name)}</span></td><td class="num">${money(byCat[c.id] || 0)}</td><td class="num">${+bud.budgets[c.id] ? money(bud.budgets[c.id]) : '—'}</td><td>${statusBadge(byCat[c.id] || 0, +bud.budgets[c.id] || 0)}</td></tr>`).join('') || `<tr><td colspan="4" class="empty">No spending or budgets yet this month.</td></tr>`}
       </tbody></table></div>`;
   };
-  return `<div class="top"><div><h1>Budgets</h1><div class="sub">Current month · ${rangeLabel(r)} · alerts at 80% and 100%</div></div>${addBtn()}</div>
+  return `<div class="top"><div><h1>Budgets</h1><div class="sub">Current month · ${rangeLabel(r)} · alerts at 80% and 100% · personal budgets include the household expenses taken from that person's salary</div></div>${addBtn()}</div>
   <div class="grid two">${people.map(id => block(id === S.me ? 'My budget' : esc(rawName(id)) + (relOf(id) ? ' <span class="sub" style="font-weight:400">· ' + esc(relOf(id)) + '</span>' : ''), monthItems(id), budgetFor(id === S.me ? 'me' : id), true, id === S.me ? 'me' : id)).join('')}${block('Household budget', monthItems(HH), budgetFor(HH), S.isAdmin, HH)}</div>`;
 }
 
@@ -839,15 +1026,15 @@ function viewRecurring() {
   const active = rules.filter(([, r, p]) => !r.paused && !p.done);
   const out = active.filter(([, r]) => typeOf(r) !== 'income').reduce((a, [, r]) => a + r.amount, 0);
   const inc = active.filter(([, r]) => typeOf(r) === 'income').reduce((a, [, r]) => a + r.amount, 0);
-  const group = (title, list) => !list.length ? '' : `<h2 style="margin:18px 0 8px">${title}</h2><div class="card" style="padding:6px 8px"><div class="tablewrap"><table><thead><tr><th>What</th><th class="hide-sm">Day</th><th>Progress</th><th class="num hide-sm">Total so far</th><th class="num hide-sm">Remaining</th><th class="num">Per month</th><th></th></tr></thead><tbody>
-  ${list.map(([id, r, p]) => `<tr style="${r.paused || p.done ? 'opacity:.6' : ''}"><td><span class="pill"><span class="dot" style="background:${entryColor(r)}"></span>${esc(r.note || entryLabel(r))}</span><div class="sub">${esc(entryLabel(r))} · ${r.target === HH ? 'Household' : (r.owner === S.me ? 'Me' : esc(rawName(r.owner)))}${r.target === HH && r.owner !== S.me ? ' · added by ' + esc(rawName(r.owner)) : ''}${r.paused ? ' · paused' : ''}${r.maturity ? ' · value ' + money(r.maturity) : ''}</div></td>
-    <td class="hide-sm">${esc(r.day)}</td>
-    <td style="min-width:150px">${p.done ? '<span class="status ok">✓ Completed</span>' : p.n ? `${p.paid} of ${p.n} · ends ${ymLabel(p.endYm)}<div class="track" style="height:6px;margin-top:5px"><div class="fill" style="width:${Math.min(100, p.paid / p.n * 100)}%;background:${entryColor(r)}"></div></div>` : `${p.paid} months · no end`}</td>
-    <td class="num hide-sm">${money(p.paidSum)}</td><td class="num hide-sm">${p.n ? money(p.leftSum) + `<div class="sub">${p.left} month${p.left === 1 ? '' : 's'}</div>` : '—'}</td>
-    <td class="num" style="font-weight:600">${money(r.amount)}</td>
-    <td class="num">${S.canWrite && r.owner === S.me ? `<button class="btn small ghost" data-act="editrec" data-id="${esc(id)}">Edit</button><button class="btn small ghost" data-act="pauserec" data-id="${esc(id)}">${r.paused ? 'Resume' : 'Pause'}</button><button class="btn small ghost danger" data-act="delrec" data-id="${esc(id)}">Delete</button>` : ''}</td></tr>`).join('')}
+  const group = (title, list) => !list.length ? '' : `<h2 style="margin:18px 0 8px">${title}</h2><div class="card" style="padding:6px 8px"><div class="tablewrap"><table class="stack"><thead><tr><th>What</th><th class="hide-sm">Day</th><th>Progress</th><th class="num hide-sm">Total so far</th><th class="num hide-sm">Remaining</th><th class="num">Per month</th><th></th></tr></thead><tbody>
+  ${list.map(([id, r, p]) => `<tr style="${r.paused || p.done ? 'opacity:.6' : ''}"><td class="first"><span class="pill"><span class="dot" style="background:${entryColor(r)}"></span>${esc(r.note || entryLabel(r))}</span><div class="sub">${esc(entryLabel(r))} · ${r.target === HH ? 'Household · ' + (debitOfRule(r) === SHARED ? 'shared pool' : 'from ' + (debitOfRule(r) === S.me ? 'your' : esc(rawName(debitOfRule(r))) + "'s") + ' salary') + (r.owner !== S.me ? ' · set up by ' + esc(rawName(r.owner)) : '') : (r.owner === S.me ? 'Me' : esc(rawName(r.owner)))}${r.paused ? ' · paused' : ''}${r.maturity ? ' · value ' + money(r.maturity) : ''}</div></td>
+    <td class="hide-sm" data-label="Day of month">${esc(r.day)}</td>
+    <td data-label="Progress" style="min-width:150px">${p.done ? '<span class="status ok">✓ Completed</span>' : p.n ? `${p.paid} of ${p.n} · ends ${ymLabel(p.endYm)}<div class="track" style="height:6px;margin-top:5px"><div class="fill" style="width:${Math.min(100, p.paid / p.n * 100)}%;background:${entryColor(r)}"></div></div>` : `${p.paid} months · no end`}</td>
+    <td class="num hide-sm" data-label="Total so far">${money(p.paidSum)}</td><td class="num hide-sm" data-label="Remaining">${p.n ? money(p.leftSum) + `<div class="sub">${p.left} month${p.left === 1 ? '' : 's'}</div>` : '—'}</td>
+    <td class="num" data-label="Per month" style="font-weight:600">${money(r.amount)}</td>
+    <td class="num acts" style="white-space:nowrap">${canEditRule(r) ? `<button class="btn small ghost" data-act="editrec" data-id="${esc(id)}">Edit</button><button class="btn small ghost" data-act="pauserec" data-id="${esc(id)}">${r.paused ? 'Resume' : 'Pause'}</button><button class="btn small ghost danger" data-act="delrec" data-id="${esc(id)}">Delete</button>` : ''}</td></tr>`).join('')}
   </tbody></table></div></div>`;
-  return `<div class="top"><div><h1>Recurring, EMI & savings</h1><div class="sub">Added automatically every month on the chosen day. Set the number of months to track how many are paid and left.</div></div>${S.canWrite ? '<button class="btn primary" data-act="addrec">+ New recurring</button>' : ''}</div>
+  return `<div class="top"><div><h1>Recurring, EMI & savings</h1><div class="sub">Added automatically every month on the chosen day. Set the number of months to track how many are paid and left.</div></div>${S.canWrite ? `<button class="btn primary" data-act="addrec" data-who="${esc(who && who !== 'all' && who !== 'me' ? who : S.me)}">+ New recurring</button>` : ''}</div>
   ${whoSel}
   ${rules.length ? `<div class="grid tiles" style="grid-template-columns:repeat(3,1fr)">
     <div class="card tile"><div class="lbl">Going out every month</div><div class="val">${money(out)}</div><div class="meta">EMI, bills, SIP, RD, chit…</div></div>
@@ -878,12 +1065,44 @@ function viewSettings() {
         <label>Month starts on day<input type="number" id="set-start" min="1" max="28" value="${esc(S.config.monthStartDay)}" ${ro ? 'disabled' : ''}><span class="sub" style="font-weight:400">Use your salary date to track salary-to-salary.</span></label>
       </div></div>
       <div class="card"><h2>Appearance</h2><div class="seg" role="group" aria-label="Theme">${['auto', 'light', 'dark'].map(t => `<button data-act="theme" data-t="${t}" class="${(document.documentElement.dataset.theme || 'auto') === t ? 'on' : ''}">${t[0].toUpperCase() + t.slice(1)}</button>`).join('')}</div></div>
+      ${S.isAdmin ? `<div class="card"><h2>Database check</h2><div class="sub" style="margin-bottom:10px">Confirms where your data is stored, that saving works, and how many entries each person has saved.</div><button class="btn" data-act="rundiag">Run check</button><div id="diag-out" style="margin-top:12px">${S.diag ? diagHtml(S.diag) : ''}</div></div>` : ''}
       ${S.isAdmin ? `<div class="card"><h2>Backup</h2><div class="sub" style="margin-bottom:10px">Download a full copy of all entries, members (without passwords), budgets and settings. Keep one every few months.</div><button class="btn" data-act="backup">Download full backup</button></div>` : ''}
       ${S.isAdmin ? `<div class="card"><h2>Family members</h2><div class="sub" style="margin-bottom:10px">Add people, set their role and reset passwords.</div><a class="btn" href="#users">Manage family members</a></div>` : ''}
     </div>
   </div>`;
 }
 
+function ago(ms) {
+  if (!ms) return '—';
+  const sec = Math.round((Date.now() - ms) / 1000);
+  if (sec < 60) return 'just now';
+  if (sec < 3600) return Math.round(sec / 60) + ' min ago';
+  if (sec < 86400) return Math.round(sec / 3600) + ' h ago';
+  return fmtDate(isoDate(new Date(ms)));
+}
+function diagHtml(d) {
+  const db = d.db;
+  const where = db.kind === 'turso' ? `<span class="diag-ok">✓ Turso cloud database</span> <span class="sub">${esc(db.host)}</span>`
+    : db.production ? `<span class="diag-bad">✗ A temporary file on this server — entries will be LOST when it restarts. Set TURSO_DATABASE_URL and TURSO_AUTH_TOKEN.</span>`
+    : `<span class="sub">A file on this computer (local testing)</span>`;
+  const mem = d.members.map(m => `<tr><td>${esc(m.name)}${m.id === d.you.id ? ' <span class="sub">(you)</span>' : ''}${m.active ? '' : ' <span class="tag">disabled</span>'}<div class="sub">${esc(m.relationship || roleLabel(m.role))}</div></td><td class="num">${m.entries}</td><td class="num hide-sm">${m.rules}</td><td class="hide-sm">${ago(m.lastEntry)}</td><td class="hide-sm">${ago(m.lastLogin)}</td></tr>`).join('');
+  const rec = d.recent.map(e => `<tr><td>${ago(e.at)}</td><td>${esc(e.owner)}</td><td>${esc(e.by)}</td><td class="num">${e.type === 'income' ? '+' : ''}${money(e.amount)}</td></tr>`).join('');
+  return `<table><tbody>
+    <tr><td>Stored in</td><td>${where}</td></tr>
+    <tr><td>Save test</td><td>${db.writeOk ? '<span class="diag-ok">✓ Wrote and read back successfully</span>' : '<span class="diag-bad">✗ ' + esc(db.writeError || 'Could not read back what was written') + '</span>'}</td></tr>
+    <tr><td>Totals</td><td>${d.totals.users} members · <b>${d.totals.entries}</b> entries · ${d.totals.recurring} recurring rules</td></tr>
+    <tr><td>Login secret</td><td>${d.server.hasJwtSecret ? '<span class="diag-ok">✓ set</span>' : '<span class="diag-bad">✗ JWT_SECRET is missing</span>'}</td></tr></tbody></table>
+    <div class="tablewrap" style="margin-top:10px"><table><thead><tr><th>Member</th><th class="num">Entries</th><th class="num hide-sm">Rules</th><th class="hide-sm">Last entry</th><th class="hide-sm">Last login</th></tr></thead><tbody>${mem}
+      <tr><td>Household (shared)</td><td class="num">${d.household.entries}</td><td class="num hide-sm"></td><td class="hide-sm">${ago(d.household.lastEntry)}</td><td class="hide-sm"></td></tr></tbody></table></div>
+    ${d.recent.length ? `<div class="sub" style="margin:12px 0 4px">Latest saved entries — “Added by” shows who was logged in</div><div class="tablewrap"><table><thead><tr><th>When</th><th>Whose</th><th>Added by</th><th class="num">Amount</th></tr></thead><tbody>${rec}</tbody></table></div>` : ''}
+    <p class="hint" style="margin-top:10px">A member with 0 entries has not saved anything yet. If an entry shows “Added by” a different person than expected, two people were logged in on the same browser — each person should use their own browser or phone, or log out first.</p>`;
+}
+async function runDiagnostics(el) {
+  el.disabled = true; const out = $('#diag-out'); out.innerHTML = '<span class="sub">Checking…</span>';
+  try { S.diag = await api('GET', '/api/diagnostics'); out.innerHTML = diagHtml(S.diag); }
+  catch (e) { out.innerHTML = `<span class="diag-bad">${esc(e.message)}</span>`; }
+  el.disabled = false;
+}
 function viewHelp() {
   return `<div class="top"><div><h1>How it works</h1></div></div>
   <div class="grid two">
@@ -901,7 +1120,13 @@ function viewHelp() {
         <tr><td><b>Member</b></td><td>Only their own expenses + the shared household expenses</td></tr>
         <tr><td><b>Viewer</b></td><td>Only the shared household expenses, read-only</td></tr>
       </tbody></table>
-      <p class="sub">“Household” entries (rent, groceries, EB bill…) are visible to the whole family. “Just me” entries are private to you and the admin.</p></div>
+      <p class="sub">“Household” entries (rent, groceries, EB bill…) are visible to the whole family. Personal entries are private to that person and the admin. The admin can add, edit or delete anything.</p></div>
+    <div class="card"><h2>Household expenses & whose salary</h2>
+      <ol style="padding-left:18px;margin:0;display:grid;gap:8px">
+        <li>Add an expense and choose the <b>Household</b> category (or set <b>Whose entry</b> to Household).</li>
+        <li>Pick <b>Spent by</b> (who did it) and <b>Debit from salary of</b> (whose money it is).</li>
+        <li>That amount is taken from that person's balance: <b>income − expenses − savings</b>. Their personal and household spending are both shown in their calculation.</li>
+        <li>Choose <b>Shared family pool</b> if it should not come out of any one person's salary — it still counts in the family totals.</li></ol></div>
     <div class="card"><h2>Tips</h2><ul style="padding-left:18px;margin:0;display:grid;gap:6px">
       <li>Use <b>tags</b> like <span class="tag">#ooty-trip</span> or <span class="tag">#diwali</span> to track an event across categories, then search for the tag in Transactions.</li>
       <li>Set <b>Month starts on day</b> in Settings to your salary date to see salary-to-salary spending.</li>
@@ -909,7 +1134,10 @@ function viewHelp() {
       <li>Add EMI, SIP, RD and chit once in <b>EMI & savings</b> with the number of months — they're added every month and you can see how many are paid and left.</li>
       <li><b>Export CSV</b> in Transactions opens in Excel or Google Sheets.</li>
       <li>Tap any date field to pick from a calendar. A dot under a day means you already have an entry on that day.</li>
-      <li>Admin: <b>Family view</b> shows every member's full details side by side, with a panel for each person.</li>
+      <li>Admin: <b>Family view</b> shows every member's full details side by side. Use the member picker to see one person, several, or everyone.</li>
+      <li>Admin: <b>Settings → Database check</b> shows where data is stored and how many entries each person has saved.</li>
+      <li>Sub-category: pick from the list or choose <b>Other</b> to type your own. Payment mode <b>Auto Debit</b> is for EMIs and SIPs taken straight from the bank.</li>
+      <li>Fixed monthly commitments can be added or edited right on the Dashboard and in the Family view.</li>
       <li>On your phone, use your browser's “Add to Home screen” to open it like an app.</li></ul></div>
   </div>`;
 }
@@ -919,11 +1147,11 @@ function viewUsers() {
   if (!S.isAdmin) return `<div class="empty">Only the admin can manage family members.</div>`;
   const users = Object.values(S.members);
   return `<div class="top"><div><h1>Family members</h1><div class="sub">Each person logs in with their own username and password.</div></div><button class="btn primary" data-act="adduser">+ Add member</button></div>
-  <div class="card" style="padding:6px 8px"><div class="tablewrap"><table><thead><tr><th>Name</th><th>Relationship</th><th>Username</th><th>Role</th><th class="hide-sm">Last login</th><th></th></tr></thead><tbody>
-  ${users.map(u => `<tr style="${u.active === false ? 'opacity:.55' : ''}"><td><b>${esc(u.name)}</b>${u.id === S.me ? ' <span class="sub">(you)</span>' : ''}${u.active === false ? ' <span class="tag">disabled</span>' : ''}${u.mustChangePassword ? ' <span class="tag">temporary password</span>' : ''}</td>
-    <td>${esc(u.relationship) || '<span class="sub">Not set</span>'}</td><td>@${esc(u.username)}</td><td><span class="role">${roleLabel(u.role)}</span></td>
-    <td class="hide-sm sub">${u.lastLogin ? fmtDate(isoDate(new Date(u.lastLogin))) : 'Never'}</td>
-    <td class="num"><button class="btn small ghost" data-act="edituser" data-id="${esc(u.id)}">Edit</button><button class="btn small ghost" data-act="resetpw" data-id="${esc(u.id)}">Reset password</button>${u.id !== S.me ? `<button class="btn small ghost danger" data-act="deluser" data-id="${esc(u.id)}">Delete</button>` : ''}</td></tr>`).join('')}
+  <div class="card" style="padding:6px 8px"><div class="tablewrap"><table class="stack"><thead><tr><th>Name</th><th>Relationship</th><th>Username</th><th>Role</th><th class="hide-sm">Last login</th><th></th></tr></thead><tbody>
+  ${users.map(u => `<tr style="${u.active === false ? 'opacity:.55' : ''}"><td class="first"><b>${esc(u.name)}</b>${u.id === S.me ? ' <span class="sub">(you)</span>' : ''}${u.active === false ? ' <span class="tag">disabled</span>' : ''}${u.mustChangePassword ? ' <span class="tag">temporary password</span>' : ''}</td>
+    <td data-label="Relationship">${esc(u.relationship) || '<span class="sub">Not set</span>'}</td><td data-label="Username">@${esc(u.username)}</td><td data-label="Role"><span class="role">${roleLabel(u.role)}</span></td>
+    <td class="hide-sm sub" data-label="Last login">${u.lastLogin ? fmtDate(isoDate(new Date(u.lastLogin))) : 'Never'}</td>
+    <td class="num acts"><button class="btn small ghost" data-act="edituser" data-id="${esc(u.id)}">Edit</button><button class="btn small ghost" data-act="resetpw" data-id="${esc(u.id)}">Reset password</button>${u.id !== S.me ? `<button class="btn small ghost danger" data-act="deluser" data-id="${esc(u.id)}">Delete</button>` : ''}</td></tr>`).join('')}
   </tbody></table></div></div>
   <p class="sub" style="margin-top:12px"><b>Disable</b> (in Edit) blocks someone from logging in but keeps their history. <b>Delete</b> removes the account and their personal entries for good.</p>`;
 }
@@ -993,7 +1221,7 @@ function showCredentials(name, username, pw, reset) {
 }
 
 /* ============ modals ============ */
-function openModal(html, onBind) { $('#modal').innerHTML = html; $('#scrim').classList.add('open'); onBind && onBind($('#modal')); const f = $('#modal').querySelector('input:not([type=hidden]),select'); f && f.focus(); }
+function openModal(html, onBind) { $('#modal').innerHTML = html; $('#scrim').classList.add('open'); onBind && onBind($('#modal')); const f = $('#modal').querySelector('[data-autofocus]') || $('#modal').querySelector('input:not([type=hidden]),select'); f && f.focus(); }
 function closeModal() { $('#scrim').classList.remove('open'); $('#modal').innerHTML = ''; }
 $('#scrim').addEventListener('click', e => { if (e.target.id === 'scrim') closeModal(); });
 document.addEventListener('keydown', e => { if (e.key === 'Escape') { if (CAL.open) { closeCal(); return; } closeModal(); } });
@@ -1008,71 +1236,159 @@ function quickPicks() {
   return [...seen.values()];
 }
 
+/* ----- sub-category picker: a dropdown of the category's sub-categories + "Other (type your own)" ----- */
+function subPickerHtml(p) {
+  return `<select id="${p}-subsel" aria-label="Sub-category"></select><input type="text" id="${p}-subtxt" maxlength="60" placeholder="Type your own sub-category" aria-label="Your own sub-category" style="display:none;margin-top:6px">`;
+}
+function subPickerFill(m, p, catId, current) {
+  const sel = m.querySelector('#' + p + '-subsel'), txt = m.querySelector('#' + p + '-subtxt');
+  const known = (catById(catId).subs || []);
+  const used = new Set();
+  const note = e => { if (e.cat === catId && typeOf(e) === 'expense' && e.sub && !known.includes(e.sub)) used.add(e.sub); };
+  S.entries.forEach(note); Object.values(S.recurring).forEach(note);
+  const usedList = [...used].sort((a, b) => a.localeCompare(b));
+  const inList = !current || known.includes(current) || used.has(current);
+  sel.innerHTML = `<option value="">— None —</option>` + known.map(s => `<option value="${esc(s)}">${esc(s)}</option>`).join('') +
+    (usedList.length ? `<optgroup label="Used before">${usedList.map(s => `<option value="${esc(s)}">${esc(s)}</option>`).join('')}</optgroup>` : '') +
+    `<option value="__other">Other (type your own)…</option>`;
+  if (current && !inList) { sel.value = '__other'; txt.value = current; } else { sel.value = current || ''; txt.value = ''; }
+  txt.style.display = sel.value === '__other' ? '' : 'none';
+}
+function subPickerBind(m, p) {
+  const sel = m.querySelector('#' + p + '-subsel'), txt = m.querySelector('#' + p + '-subtxt');
+  sel.addEventListener('change', () => { txt.style.display = sel.value === '__other' ? '' : 'none'; if (sel.value === '__other') txt.focus(); });
+}
+function subPickerValue(m, p) {
+  const sel = m.querySelector('#' + p + '-subsel');
+  return sel.value === '__other' ? m.querySelector('#' + p + '-subtxt').value.trim() : sel.value;
+}
+// <option>s for a member picker (you first). `extra` ids that are no longer selectable are kept so editing never silently changes them.
+function memberOptions(selected, { shared = false, extra = [] } = {}) {
+  const ids = chargeable();
+  extra.filter(x => x && x !== SHARED && !ids.includes(x)).forEach(x => ids.push(x));
+  return ids.map(id => `<option value="${esc(id)}" ${selected === id ? 'selected' : ''}>${esc(nameOf(id))}</option>`).join('') +
+    (shared ? `<option value="${SHARED}" ${selected === SHARED ? 'selected' : ''}>Shared family pool (no one's salary)</option>` : '');
+}
+// Where a brand-new entry should go by default, based on what the person is looking at.
+function defaultTarget() {
+  const sc = S.f.scope;
+  if (S.view === 'family' && S.isAdmin && S.f.fam.length === 1) {
+    if (S.f.fam[0] === SHARED) return { owner: HH, debit: SHARED };
+    return { owner: S.f.fam[0] === S.me ? S.me : S.f.fam[0], debit: null };
+  }
+  if (sc === SHARED) return { owner: HH, debit: SHARED };
+  if (sc === HH) return { owner: HH, debit: null };
+  if (S.isAdmin && sc !== 'me' && sc !== 'all' && S.members[sc]) return { owner: sc, debit: null };
+  return { owner: S.me, debit: null };
+}
+
 function entryForm(existing) {
-  const it = existing || { type: 'expense', date: todayISO(), cat: S.config.categories[0]?.id, mode: S.config.modes[0] || '', tags: [], owner: S.f.scope === HH ? HH : S.me };
+  const dt = defaultTarget();
+  const it = existing || { type: 'expense', date: todayISO(), cat: S.config.categories[0]?.id, mode: S.config.modes[0] || '', tags: [], owner: dt.owner, debitFrom: dt.debit, spentBy: S.me };
   let type = it.type || 'expense';
   const picks = existing ? [] : quickPicks();
+  // Who can this entry be put under? Members: themselves or the household. Admin: any member.
+  const ownerIds = S.isAdmin ? chargeable() : [S.me];
+  if (it.owner !== HH && !ownerIds.includes(it.owner) && S.members[it.owner]) ownerIds.push(it.owner);
+  const ownerOpts = ownerIds.map(id => `<option value="${esc(id)}" ${it.owner === id ? 'selected' : ''}>${id === S.me ? (S.isAdmin ? esc(rawName(id)) + ' (you)' : 'Just me') : esc(nameOf(id))}</option>`).join('') + `<option value="${HH}" ${it.owner === HH ? 'selected' : ''}>Household (shared with the family)</option>`;
+  const byDefault = it.spentBy || S.me, debitDefault = it.debitFrom || byDefault;
+  const mode = it.mode || '';
+  const modes = S.config.modes.includes(mode) || !mode ? S.config.modes : [...S.config.modes, mode];
   const html = `<h2>${existing ? 'Edit entry' : 'Add entry'}</h2>
-  <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:14px">
-    <div class="seg" id="e-type"><button data-v="expense">Expense</button><button data-v="saving">Savings</button><button data-v="income">Income</button></div>
-    <div class="seg" id="e-owner" ${existing ? 'style="pointer-events:none;opacity:.7"' : ''}><button data-v="${esc(S.me)}">Just me</button><button data-v="household">Household</button></div>
-  </div>
-  ${picks.length ? `<div style="margin-bottom:12px"><div class="sub" style="margin-bottom:6px">Quick add</div><div class="chips">${picks.map((p, i) => `<button class="chip" data-pick="${i}">${esc(p.note || p.sub || catById(p.cat).name)} · ${money(p.amount)}</button>`).join('')}</div></div>` : ''}
+  <div style="margin-bottom:14px"><div class="seg" id="e-type"><button type="button" data-v="expense">Expense</button><button type="button" data-v="saving">Savings</button><button type="button" data-v="income">Income</button></div></div>
+  ${picks.length ? `<div style="margin-bottom:12px"><div class="sub" style="margin-bottom:6px">Quick add</div><div class="chips">${picks.map((p, i) => `<button type="button" class="chip" data-pick="${i}">${esc(p.note || p.sub || catById(p.cat).name)} · ${money(p.amount)}</button>`).join('')}</div></div>` : ''}
   <form class="form" id="e-form">
-    <label>Amount (${esc(CUR)})<input type="number" id="e-amt" step="0.01" min="0" inputmode="decimal" required value="${esc(it.amount ?? '')}"></label>
+    <label class="full">Whose entry<select id="e-owner">${ownerOpts}</select><span class="hint" id="e-owner-hint"></span></label>
+    <div class="payrow full" id="e-pay" style="display:none">
+      <label>Spent by<select id="e-by">${memberOptions(byDefault, { extra: [it.spentBy] })}</select></label>
+      <label><span id="e-debit-lbl">Debit from salary of</span><select id="e-debit">${memberOptions(debitDefault, { shared: true, extra: [it.debitFrom] })}</select></label>
+      <div class="hint full" id="e-pay-hint"></div>
+    </div>
+    <label>Amount (${esc(CUR)})<input type="number" id="e-amt" step="0.01" min="0" inputmode="decimal" required data-autofocus value="${esc(it.amount ?? '')}"></label>
     <label>Date${dateField('e-date', it.date, { label: 'Entry date' })}</label>
     <label id="l-cat">Category<select id="e-cat"></select></label>
-    <label id="l-sub">Sub-category<input type="text" id="e-sub" list="e-subs" value="${esc(it.sub || '')}" placeholder="optional"><datalist id="e-subs"></datalist></label>
-    <label>Payment mode<select id="e-mode">${S.config.modes.map(m => `<option ${it.mode === m ? 'selected' : ''}>${esc(m)}</option>`).join('')}<option value="" ${!it.mode ? 'selected' : ''}>Not set</option></select></label>
+    <label id="l-sub" class="subpick">Sub-category${subPickerHtml('e')}</label>
+    <label>Payment mode<select id="e-mode">${modes.map(m => `<option ${mode === m ? 'selected' : ''}>${esc(m)}</option>`).join('')}<option value="" ${!mode ? 'selected' : ''}>Not set</option></select></label>
     <label>Tags<input type="text" id="e-tags" value="${esc((it.tags || []).join(', '))}" placeholder="e.g. ooty-trip, diwali"></label>
     <label class="full">Note<input type="text" id="e-note" value="${esc(it.note || '')}" placeholder="What was it for?"></label>
   </form>
   <div class="err" id="e-err"></div>
-  <div class="actions"><button class="btn" data-x="cancel">Cancel</button><button class="btn primary" data-x="save">${existing ? 'Save changes' : 'Add entry'}</button></div>`;
+  <div class="actions"><button type="button" class="btn" data-x="cancel">Cancel</button><button type="button" class="btn primary" data-x="save">${existing ? 'Save changes' : 'Add entry'}</button></div>`;
   openModal(html, m => {
-    let owner = it.owner;
+    const q = s => m.querySelector(s);
+    let ownerTouched = !!existing, debitTouched = !!existing || !!it.debitFrom, autoPrev = null;
     const setSeg = (id, v) => m.querySelectorAll('#' + id + ' button').forEach(b => b.classList.toggle('on', b.dataset.v === v));
-    const fillCats = () => {
-      const sel = m.querySelector('#e-cat');
-      sel.innerHTML = typeCats(type).map(c => `<option value="${esc(c.v)}" ${it.cat === c.v ? 'selected' : ''}>${esc(c.l)}</option>`).join('');
-      m.querySelector('#l-sub').style.display = type === 'expense' ? '' : 'none';
-      fillSubs();
+    const isHH = () => q('#e-owner').value === HH;
+    const nm = id => id === S.me ? 'your' : rawName(id) + "'s";
+    const updatePay = () => {
+      q('#e-pay').style.display = isHH() ? '' : 'none';
+      q('#e-debit-lbl').textContent = type === 'income' ? 'Credit to income of' : 'Debit from salary of';
+      const d = q('#e-debit').value;
+      q('#e-pay-hint').textContent = d === SHARED ? 'Counted in the household totals only — not taken from any one person’s balance.'
+        : type === 'income' ? `Added to ${nm(d)} income.` : `Taken from ${nm(d)} balance (income − spending − savings).`;
+      const o = q('#e-owner').value;
+      q('#e-owner-hint').textContent = o === HH ? (autoPrev !== null ? 'Household category chosen, so this is saved as a shared household entry. Pick a person above if it is personal.' : 'Shared entry — everyone in the family can see it.')
+        : o !== S.me ? `Saved in ${rawName(o)}'s account (added by you).` : '';
     };
-    const fillSubs = () => { const c = catById(m.querySelector('#e-cat').value); m.querySelector('#e-subs').innerHTML = (c.subs || []).map(s => `<option value="${esc(s)}">`).join(''); };
-    setSeg('e-type', type); setSeg('e-owner', owner); fillCats();
-    m.querySelectorAll('#e-type button').forEach(b => b.onclick = () => { type = b.dataset.v; setSeg('e-type', type); fillCats(); });
-    m.querySelectorAll('#e-owner button').forEach(b => b.onclick = () => { owner = b.dataset.v; setSeg('e-owner', owner); });
-    m.querySelector('#e-cat').onchange = fillSubs;
+    const fillCats = (initial) => {
+      const sel = q('#e-cat'); const want = initial ? it.cat : sel.value;
+      const opts = typeCats(type);
+      sel.innerHTML = opts.map(c => `<option value="${esc(c.v)}">${esc(c.l)}</option>`).join('');
+      if (want && !opts.some(c => c.v === want)) sel.insertAdjacentHTML('beforeend', `<option value="${esc(want)}">${esc(type === 'expense' ? catById(want).name : want)}</option>`);
+      if (want) sel.value = want;
+      q('#l-sub').style.display = type === 'expense' ? '' : 'none';
+      subPickerFill(m, 'e', sel.value, initial ? (it.sub || '') : '');
+      updatePay();
+    };
+    const undoAuto = () => { if (autoPrev !== null) { q('#e-owner').value = autoPrev; autoPrev = null; } };
+    setSeg('e-type', type); fillCats(true); subPickerBind(m, 'e'); updatePay();
+    m.querySelectorAll('#e-type button').forEach(b => b.onclick = () => { type = b.dataset.v; setSeg('e-type', type); if (type !== 'expense') undoAuto(); fillCats(false); });
+    q('#e-owner').onchange = () => { ownerTouched = true; autoPrev = null; updatePay(); };
+    q('#e-by').onchange = () => { if (!debitTouched && [...q('#e-debit').options].some(o => o.value === q('#e-by').value)) q('#e-debit').value = q('#e-by').value; updatePay(); };
+    q('#e-debit').onchange = () => { debitTouched = true; updatePay(); };
+    q('#e-cat').onchange = () => {
+      subPickerFill(m, 'e', q('#e-cat').value, '');
+      // Picking the Household category on a new expense records it as a shared household expense (undone if you pick another category).
+      if (!existing && type === 'expense' && !ownerTouched) {
+        if (q('#e-cat').value === 'household' && !isHH()) { autoPrev = q('#e-owner').value; q('#e-owner').value = HH; }
+        else if (q('#e-cat').value !== 'household') undoAuto();
+      }
+      updatePay();
+    };
     m.querySelectorAll('[data-pick]').forEach(b => b.onclick = () => {
       const p = picks[+b.dataset.pick];
-      m.querySelector('#e-amt').value = p.amount; m.querySelector('#e-cat').value = p.cat; fillSubs();
-      m.querySelector('#e-sub').value = p.sub || ''; m.querySelector('#e-mode').value = p.mode || ''; m.querySelector('#e-note').value = p.note || '';
-      m.querySelector('#e-tags').value = (p.tags || []).join(', ');
-      owner = p.owner; setSeg('e-owner', owner);
+      q('#e-amt').value = p.amount; q('#e-cat').value = p.cat; subPickerFill(m, 'e', p.cat, p.sub || '');
+      q('#e-mode').value = p.mode || ''; q('#e-note').value = p.note || '';
+      q('#e-tags').value = (p.tags || []).join(', ');
+      if ([...q('#e-owner').options].some(o => o.value === p.owner)) q('#e-owner').value = p.owner;
+      if (p.owner === HH) { if (p.spentBy) q('#e-by').value = p.spentBy; if (p.debitFrom) q('#e-debit').value = p.debitFrom; }
+      ownerTouched = true; autoPrev = null; updatePay();
     });
-    m.querySelector('[data-x=cancel]').onclick = closeModal;
+    q('[data-x=cancel]').onclick = closeModal;
     const save = async () => {
-      const amt = parseFloat(m.querySelector('#e-amt').value); const date = m.querySelector('#e-date').value;
-      const err = m.querySelector('#e-err');
+      const amt = parseFloat(q('#e-amt').value); const date = q('#e-date').value;
+      const err = q('#e-err');
       if (!(amt > 0)) { err.textContent = 'Enter an amount greater than zero.'; return; }
       if (!date) { err.textContent = 'Pick a date.'; return; }
-      const item = {
-        id: existing ? existing.id : uid(), date, amount: amt, type,
-        cat: m.querySelector('#e-cat').value, sub: type === 'expense' ? m.querySelector('#e-sub').value.trim() : '',
-        mode: m.querySelector('#e-mode').value, note: m.querySelector('#e-note').value.trim(),
-        tags: m.querySelector('#e-tags').value.split(',').map(t => t.trim().replace(/^#/, '')).filter(Boolean),
-        by: existing?.by || S.me, created: existing?.created || Date.now(), edited: existing ? Date.now() : null,
+      const owner = q('#e-owner').value;
+      const body = {
+        date, amount: amt, type, owner,
+        cat: q('#e-cat').value, sub: type === 'expense' ? subPickerValue(m, 'e') : '',
+        mode: q('#e-mode').value, note: q('#e-note').value.trim(),
+        tags: q('#e-tags').value.split(',').map(t => t.trim().replace(/^#/, '')).filter(Boolean),
       };
-      if (existing?.recurring) item.recurring = existing.recurring;
-      const btn = m.querySelector('[data-x=save]'); btn.disabled = true; btn.textContent = 'Saving…';
+      if (owner === HH) { body.spentBy = q('#e-by').value; body.debitFrom = q('#e-debit').value; }
+      const btn = q('[data-x=save]'); btn.disabled = true; btn.textContent = 'Saving…';
       try {
-        if (existing) await mutate('PUT', '/api/entries/' + existing.id, item);
-        else await mutate('POST', '/api/entries', { ...item, owner });
-        closeModal(); toast(existing ? 'Entry updated' : 'Entry added');
-      } catch (e) { btn.disabled = false; btn.textContent = 'Try again'; err.textContent = writeError(e); }
+        if (existing) await mutate('PUT', '/api/entries/' + existing.id, body);
+        else await mutate('POST', '/api/entries', body);
+        closeModal();
+        const where = owner === HH ? (body.debitFrom === SHARED ? ' · shared pool' : ' · from ' + nm(body.debitFrom) + (type === 'income' ? ' income' : ' salary')) : (owner !== S.me ? " · in " + rawName(owner) + "'s account" : '');
+        toast((existing ? 'Entry updated' : 'Entry added') + where);
+      } catch (e) { btn.disabled = false; btn.textContent = existing ? 'Save changes' : 'Try again'; err.textContent = writeError(e); }
     };
-    m.querySelector('[data-x=save]').onclick = save;
-    m.querySelector('#e-form').onsubmit = e => { e.preventDefault(); save(); };
+    q('[data-x=save]').onclick = save;
+    q('#e-form').onsubmit = e => { e.preventDefault(); save(); };
     m.querySelectorAll('#e-form input').forEach(i => i.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); save(); } }));
   });
 }
@@ -1104,39 +1420,74 @@ function budgetForm(key) {
 }
 async function saveConfig(cfg) { await mutate('PUT', '/api/settings', cfg); }
 
-function recForm(id) {
-  const r = id ? S.recurring[id] : { type: 'expense', day: new Date().getDate(), cat: S.config.categories[0]?.id, mode: S.config.modes[0] || '', target: S.me, startYm: todayISO().slice(0, 7) };
+function recForm(id, preset = {}) {
+  const r0 = id ? S.recurring[id] : null;
+  if (id && !r0) return;
+  const ownerPick = preset.userId && S.members[preset.userId] && S.members[preset.userId].role !== 'viewer' ? preset.userId : S.me;
+  const r = r0 || { type: 'expense', day: new Date().getDate(), cat: S.config.categories[0]?.id, mode: S.config.modes[0] || '', target: preset.target === HH ? HH : 'me', owner: S.isAdmin ? ownerPick : S.me, debitFrom: preset.debit || null, startYm: todayISO().slice(0, 7) };
   let type = r.type || 'expense';
-  openModal(`<h2>${id ? 'Edit' : 'New'} recurring entry</h2><p class="sub" style="margin-top:-6px">For EMI, SIP, RD, chit, rent, subscriptions or salary.</p>
-  <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px"><div class="seg" id="r-type"><button data-v="expense">Expense / EMI</button><button data-v="saving">Savings</button><button data-v="income">Income</button></div>
-  <div class="seg" id="r-target"><button data-v="me">Just me</button><button data-v="household">Household</button></div></div>
+  const debitDefault = r.debitFrom || r.owner;
+  const mode = r.mode || '';
+  const modes = S.config.modes.includes(mode) || !mode ? S.config.modes : [...S.config.modes, mode];
+  openModal(`<h2>${id ? 'Edit' : 'New'} recurring entry</h2><p class="sub" style="margin-top:-6px">For EMI, SIP, RD, chit, rent, subscriptions or salary. It is added automatically every month.</p>
+  <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px"><div class="seg" id="r-type"><button type="button" data-v="expense">Expense / EMI</button><button type="button" data-v="saving">Savings</button><button type="button" data-v="income">Income</button></div>
+  <div class="seg" id="r-target"><button type="button" data-v="me">Just me</button><button type="button" data-v="household">Household</button></div></div>
   <div class="form">
-    <label>Amount (${esc(CUR)})<input type="number" id="r-amt" min="0" step="0.01" value="${esc(r.amount ?? '')}"></label>
+    ${S.isAdmin ? `<label class="full">Whose<select id="r-who">${memberOptions(r.owner, { extra: [r.owner] })}</select></label>` : ''}
+    <div class="payrow full" id="r-pay" style="display:none"><label class="full"><span id="r-debit-lbl">Debit from salary of</span><select id="r-debit">${memberOptions(debitDefault, { shared: true, extra: [r.debitFrom] })}</select></label><div class="hint full" id="r-pay-hint"></div></div>
+    <label>Amount (${esc(CUR)})<input type="number" id="r-amt" min="0" step="0.01" inputmode="decimal" data-autofocus value="${esc(r.amount ?? '')}"></label>
     <label>Day of month${dateField('r-day', r.day, { mode: 'dom', label: 'Day of month' })}</label>
     <label>Category<select id="r-cat"></select></label>
-    <label>Payment mode<select id="r-mode">${S.config.modes.map(m => `<option ${r.mode === m ? 'selected' : ''}>${esc(m)}</option>`).join('')}</select></label>
-    <label class="full">Name<input type="text" id="r-note" value="${esc(r.note || '')}" placeholder="e.g. Car EMI, SIP – Axis Bluechip, Chit ₹1 lakh, RD – SBI"></label>
-    <label>Number of months (optional)<input type="number" id="r-inst" min="1" max="600" value="${esc(r.installments || '')}" placeholder="e.g. 24"><span class="sub" style="font-weight:400">Tenure — stops automatically after this.</span></label>
-    <label>Maturity / chit value (optional)<input type="number" id="r-mat" min="0" value="${esc(r.maturity || '')}" placeholder="e.g. 100000"></label>
-    ${id ? '' : `<label class="full">Start from month${dateField('r-start', r.startYm, { mode: 'month', label: 'Start month' })}<span class="sub" style="font-weight:400">Past months from here are filled in automatically.</span></label>`}
+    <label id="rl-sub" class="subpick">Sub-category${subPickerHtml('r')}</label>
+    <label>Payment mode<select id="r-mode">${modes.map(m => `<option ${mode === m ? 'selected' : ''}>${esc(m)}</option>`).join('')}</select><span class="hint">Choose “Auto Debit” for EMIs and SIPs taken straight from the bank.</span></label>
+    <label>Name<input type="text" id="r-note" value="${esc(r.note || '')}" placeholder="e.g. Car EMI, SIP – Axis Bluechip, RD – SBI"></label>
+    <label>Number of months (optional)<input type="number" id="r-inst" min="1" max="600" inputmode="numeric" value="${esc(r.installments || '')}" placeholder="e.g. 24"><span class="hint">Tenure — stops automatically after this.</span></label>
+    <label>Maturity / chit value (optional)<input type="number" id="r-mat" min="0" inputmode="decimal" value="${esc(r.maturity || '')}" placeholder="e.g. 100000"></label>
+    ${id ? `<div class="full sub">Started ${esc(ymLabel(r.startYm))}. Months already added keep what was recorded; changes apply to the coming months.</div>
+      <label class="full" style="flex-direction:row;align-items:center;gap:8px"><input type="checkbox" id="r-apply" checked style="width:auto;min-height:0"> Also update this month's entry if it has already been added</label>`
+      : `<label class="full">Start from month${dateField('r-start', r.startYm, { mode: 'month', label: 'Start month' })}<span class="hint">Past months from here are filled in automatically.</span></label>`}
   </div><div class="err" id="r-err"></div>
-  <div class="actions"><button class="btn" data-x="no">Cancel</button><button class="btn primary" data-x="yes">Save</button></div>`, m => {
-    let target = r.target === HH ? 'household' : 'me';
+  <div class="actions" style="justify-content:space-between">${id ? '<button type="button" class="btn danger" data-x="del">Delete</button>' : '<span></span>'}<span style="display:flex;gap:8px"><button type="button" class="btn" data-x="no">Cancel</button><button type="button" class="btn primary" data-x="yes">${id ? 'Save changes' : 'Save'}</button></span></div>`, m => {
+    const q = s => m.querySelector(s);
+    let target = r.target === HH ? HH : 'me', debitTouched = !!id || !!r.debitFrom;
     const seg = (sid, v) => m.querySelectorAll('#' + sid + ' button').forEach(b => b.classList.toggle('on', b.dataset.v === v));
-    const fill = () => { m.querySelector('#r-cat').innerHTML = typeCats(type).map(c => `<option value="${esc(c.v)}" ${r.cat === c.v ? 'selected' : ''}>${esc(c.l)}</option>`).join(''); };
-    seg('r-type', type); seg('r-target', target); fill();
-    m.querySelectorAll('#r-type button').forEach(b => b.onclick = () => { type = b.dataset.v; seg('r-type', type); fill(); });
-    m.querySelectorAll('#r-target button').forEach(b => b.onclick = () => { target = b.dataset.v; seg('r-target', target); });
-    m.querySelector('[data-x=no]').onclick = closeModal;
-    m.querySelector('[data-x=yes]').onclick = async () => {
-      const amount = parseFloat(m.querySelector('#r-amt').value); const day = parseInt(m.querySelector('#r-day').value, 10);
-      if (!(amount > 0)) { m.querySelector('#r-err').textContent = 'Enter an amount.'; return; }
-      if (!(day >= 1 && day <= 31)) { m.querySelector('#r-err').textContent = 'Day must be 1–31.'; return; }
-      const rid = id || uid();
-      const rule = { ...(id ? r : {}), type, amount, day, cat: m.querySelector('#r-cat').value, mode: m.querySelector('#r-mode').value, note: m.querySelector('#r-note').value.trim(), target: target === 'household' ? HH : 'me', installments: parseInt(m.querySelector('#r-inst').value, 10) || null, maturity: parseFloat(m.querySelector('#r-mat').value) || null };
-      if (!id) { rule.startYm = m.querySelector('#r-start').value || todayISO().slice(0, 7); rule.lastPosted = ''; }
-      try { if (id) await mutate('PUT', '/api/recurring/' + id, rule); else await mutate('POST', '/api/recurring', rule); closeModal(); toast('Recurring entry saved'); }
-      catch (e) { m.querySelector('#r-err').textContent = writeError(e); }
+    const who = () => (S.isAdmin ? q('#r-who').value : S.me);
+    const nm = x => x === S.me ? 'your' : rawName(x) + "'s";
+    const updatePay = () => {
+      q('#r-pay').style.display = target === HH ? '' : 'none';
+      q('#r-debit-lbl').textContent = type === 'income' ? 'Credit to income of' : 'Debit from salary of';
+      const d = q('#r-debit').value;
+      q('#r-pay-hint').textContent = d === SHARED ? 'Counted in the household totals only — not taken from any one person’s balance.' : type === 'income' ? `Added to ${nm(d)} income each month.` : `Taken from ${nm(d)} balance each month.`;
+    };
+    const fill = (initial) => {
+      const sel = q('#r-cat'); const want = initial ? r.cat : sel.value; const opts = typeCats(type);
+      sel.innerHTML = opts.map(c => `<option value="${esc(c.v)}">${esc(c.l)}</option>`).join('');
+      if (want && !opts.some(c => c.v === want)) sel.insertAdjacentHTML('beforeend', `<option value="${esc(want)}">${esc(type === 'expense' ? catById(want).name : want)}</option>`);
+      if (want) sel.value = want;
+      q('#rl-sub').style.display = type === 'expense' ? '' : 'none';
+      subPickerFill(m, 'r', sel.value, initial ? (r.sub || '') : '');
+      updatePay();
+    };
+    seg('r-type', type); seg('r-target', target); fill(true); subPickerBind(m, 'r'); updatePay();
+    m.querySelectorAll('#r-type button').forEach(b => b.onclick = () => { type = b.dataset.v; seg('r-type', type); fill(false); });
+    m.querySelectorAll('#r-target button').forEach(b => b.onclick = () => { target = b.dataset.v; seg('r-target', target); updatePay(); });
+    q('#r-cat').onchange = () => subPickerFill(m, 'r', q('#r-cat').value, '');
+    if (S.isAdmin) q('#r-who').onchange = () => { if (!debitTouched) { const w = q('#r-who').value; if ([...q('#r-debit').options].some(o => o.value === w)) q('#r-debit').value = w; } updatePay(); };
+    q('#r-debit').onchange = () => { debitTouched = true; updatePay(); };
+    q('[data-x=no]').onclick = closeModal;
+    if (id) q('[data-x=del]').onclick = () => confirmBox('Delete this recurring entry?', 'Entries already added stay in the history. Future months won\'t be added.', 'Delete', async () => { await mutate('DELETE', '/api/recurring/' + id); toast('Recurring entry deleted'); });
+    q('[data-x=yes]').onclick = async () => {
+      const err = q('#r-err'); err.textContent = '';
+      const amount = parseFloat(q('#r-amt').value); const day = parseInt(q('#r-day').value, 10);
+      if (!(amount > 0)) { err.textContent = 'Enter an amount.'; return; }
+      if (!(day >= 1 && day <= 31)) { err.textContent = 'Pick the day of the month (1–31).'; return; }
+      const rule = { type, amount, day, cat: q('#r-cat').value, sub: type === 'expense' ? subPickerValue(m, 'r') : '', mode: q('#r-mode').value, note: q('#r-note').value.trim(), target, installments: parseInt(q('#r-inst').value, 10) || null, maturity: parseFloat(q('#r-mat').value) || null };
+      if (S.isAdmin) rule.userId = who();
+      if (target === HH) rule.debitFrom = q('#r-debit').value;
+      if (id) rule.applyCurrent = q('#r-apply').checked; else rule.startYm = q('#r-start').value || todayISO().slice(0, 7);
+      const btn = q('[data-x=yes]'); btn.disabled = true;
+      try { if (id) await mutate('PUT', '/api/recurring/' + id, rule); else await mutate('POST', '/api/recurring', rule); closeModal(); toast(id ? 'Recurring entry updated' : 'Recurring entry added'); }
+      catch (e) { btn.disabled = false; err.textContent = writeError(e); }
     };
   });
 }
@@ -1145,7 +1496,7 @@ function recForm(id) {
 const ACTIONS = {
   add: () => entryForm(null),
   edit: el => { const it = findItem(el.dataset.owner, el.dataset.id); it && entryForm(it); },
-  del: el => { const it = findItem(el.dataset.owner, el.dataset.id); if (!it) return; confirmBox('Delete this entry?', `${esc(fmtDate(it.date))} · ${esc(it.note || catById(it.cat).name)} · <b>${money(it.amount)}</b>`, 'Delete', async () => { await mutate('DELETE', '/api/entries/' + it.id); toast('Entry deleted'); }); },
+  del: el => { const it = findItem(el.dataset.owner, el.dataset.id); if (!it) return; confirmBox('Delete this entry?', `${esc(fmtDate(it.date))} · ${esc(it.note || entryLabel(it))} · <b>${money(it.amount)}</b>${S.isAdmin ? ' · ' + esc(it.owner === HH ? 'Household' : rawName(it.owner)) : ''}<br>This cannot be undone.`, 'Delete', async () => { await mutate('DELETE', '/api/entries/' + it.id); toast('Entry deleted'); }); },
   openperson: el => { S.f.scope = el.dataset.id === S.me ? 'me' : el.dataset.id; location.hash = el.dataset.to || 'dashboard'; },
   jump: el => { const d = document.getElementById('mp-' + el.dataset.id); if (d) { d.open = true; S.mpOpen[el.dataset.id] = true; d.scrollIntoView({ behavior: 'smooth', block: 'start' }); } },
   backup: async el => {
@@ -1161,8 +1512,11 @@ const ACTIONS = {
   },
   viewperson: el => { S.f.scope = el.dataset.id === S.me ? 'me' : el.dataset.id; location.hash = 'transactions'; },
   editbudget: el => budgetForm(el.dataset.key),
-  addrec: () => recForm(null),
+  addrec: el => recForm(null, { userId: el.dataset.who, target: el.dataset.target, debit: el.dataset.debit }),
   editrec: el => recForm(el.dataset.id),
+  famtoggle: () => { S.famOpen = !S.famOpen; render(); },
+  famdone: () => { S.famOpen = false; render(); },
+  rundiag: runDiagnostics,
   pauserec: async el => { const r = S.recurring[el.dataset.id]; try { await mutate('PUT', '/api/recurring/' + el.dataset.id, { paused: !r.paused }); } catch (e) { toast(writeError(e)); } },
   delrec: el => confirmBox('Delete this recurring entry?', 'Entries already added stay in your history. Future months won\'t be added.', 'Delete', () => mutate('DELETE', '/api/recurring/' + el.dataset.id)),
   theme: el => { const t = el.dataset.t; if (t === 'auto') delete document.documentElement.dataset.theme; else document.documentElement.dataset.theme = t; try { localStorage.setItem('et-theme', t); } catch (e) {} S.force = true; collectCats(); render(); },
@@ -1184,7 +1538,7 @@ const ACTIONS = {
   adduser: () => userForm(null, false),
   edituser: el => userForm(el.dataset.id, false),
   resetpw: el => userForm(el.dataset.id, true),
-  deluser: el => { const u = S.members[el.dataset.id]; confirmBox('Delete ' + u.name + '?', `This removes <b>@${esc(u.username)}</b> and all of their personal entries, budgets and recurring items. Household entries they added stay. To keep their history, use <b>Disable</b> instead.`, 'Delete for good', async () => { await mutate('DELETE', '/api/users/' + u.id); toast('Member deleted'); }); },
+  deluser: el => { const u = S.members[el.dataset.id]; confirmBox('Delete ' + u.name + '?', `This removes <b>@${esc(u.username)}</b> and all of their personal entries, budgets and recurring items. Household entries they added stay, and the part taken from their salary moves to the shared pool. To keep their history, use <b>Disable</b> instead.`, 'Delete for good', async () => { await mutate('DELETE', '/api/users/' + u.id); toast('Member deleted'); }); },
   logout: async () => { try { await api('POST', '/api/logout'); } catch (e) {} location.replace('/login.html'); },
   savename: async () => { try { await mutate('PUT', '/api/me', { name: $('#me-name').value }); toast('Name saved'); } catch (e) { toast(e.message); } },
   changepw: async el => {
@@ -1197,8 +1551,8 @@ const ACTIONS = {
   },
   export: async () => {
     const items = filteredTx();
-    const rows = [['Date', 'Type', 'Whose', 'Relationship', 'Category', 'Sub-category', 'Payment mode', 'Amount', 'Note', 'Tags']];
-    items.forEach(i => rows.push([i.date, i.type || 'expense', i.owner === HH ? 'Household' : rawName(i.owner), i.owner === HH ? '' : relOf(i.owner), entryLabel(i), i.sub || '', i.mode || '', i.amount, i.note || '', (i.tags || []).join(' ')]));
+    const rows = [['Date', 'Type', 'Whose', 'Relationship', 'Spent by (household)', 'Debited from (household)', 'Added by', 'Category', 'Sub-category', 'Payment mode', 'Amount', 'Note', 'Tags']];
+    items.forEach(i => rows.push([i.date, i.type || 'expense', i.owner === HH ? 'Household' : rawName(i.owner), i.owner === HH ? '' : relOf(i.owner), i.owner === HH && i.spentBy ? rawName(i.spentBy) : '', i.owner === HH ? rawName(i.debitFrom || SHARED) : '', i.by ? rawName(i.by) : '', entryLabel(i), i.sub || '', i.mode || '', i.amount, i.note || '', (i.tags || []).join(' ')]));
     const csv = rows.map(r => r.map(v => { const s = String(v ?? ''); return /[",\n]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; }).join(',')).join('\n');
     const fname = 'expenses-' + todayISO() + '.csv';
     const url = URL.createObjectURL(new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8' }));

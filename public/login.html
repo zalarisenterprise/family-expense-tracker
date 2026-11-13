@@ -112,7 +112,7 @@ function setupForm() {
     const s = await api('/api/setup-status');
     s.needsSetup ? setupForm() : loginForm();
   } catch (e) {
-    $('#card').innerHTML = `<h1>Can't reach the server</h1><p class="sub">${e.message.replace(/</g, '&lt;')}</p><button class="primary" onclick="location.reload()">Try again</button>`;
+    $('#card').innerHTML = `<h1>The server needs attention</h1><p class="sub">${e.message.replace(/</g, '&lt;')}</p><button class="primary" onclick="location.reload()">Try again</button>`;
   }
 })();
 </script>
